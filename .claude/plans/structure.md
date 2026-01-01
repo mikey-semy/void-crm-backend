@@ -1,16 +1,16 @@
 This session is being continued from a previous conversation that ran out of context. The conversation is summarized below:
 Analysis:
-Let me chronologically analyze this conversation about creating void-cms-backend with FastAPI + WebSocket for real-time checklist synchronization.
+Let me chronologically analyze this conversation about creating void-crm-backend with FastAPI + WebSocket for real-time checklist synchronization.
 
 ## Chronological Analysis:
 
 ### Initial Context
-The user continued a conversation from a previous session about void-cms-frontend (Next.js checklist app). The summary showed they had created a complete frontend with checklist functionality using localStorage.
+The user continued a conversation from a previous session about void-crm-frontend (Next.js checklist app). The summary showed they had created a complete frontend with checklist functionality using localStorage.
 
 ### User's Primary Request
 The user asked about backend implementation for real-time synchronization:
 - "нужно чтобы мы оба видели эти изменения в чек-листе" (need both partners to see changes in checklist)
-- User created void-cms-backend folder for uv (not pip)
+- User created void-crm-backend folder for uv (not pip)
 - Asked about FastAPI structure vs FSD (Feature-Sliced Design) for React
 
 ### My Exploration Phase
@@ -84,7 +84,7 @@ From devon-store-backend:
 Summary:
 ## 1. Primary Request and Intent
 
-The user requested creation of **void-cms-backend** with the following requirements:
+The user requested creation of **void-crm-backend** with the following requirements:
 
 **Primary Goal**: Real-time synchronization of checklist data between two partners using FastAPI + WebSocket
 
@@ -127,15 +127,15 @@ Translation: Don't focus specifically on checklist - it's temporary to determine
 
 ### Created Files:
 
-#### `C:\Users\Mike\Projects\void-cms-backend\pyproject.toml`
+#### `C:\Users\Mike\Projects\void-crm-backend\pyproject.toml`
 **Why Important**: Defines project dependencies and configuration for uv package manager
 
 **Code**:
 ```toml
 [project]
-name = "void-cms-backend"
+name = "void-crm-backend"
 version = "0.1.0"
-description = "Backend для внутренней CMS веб-студии VOID"
+description = "Backend для внутренней CRM веб-студии VOID"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -266,7 +266,7 @@ ALLOW_ORIGINS=["http://localhost:3000"]
    > "ок, теперь что, нужно чтобы мы оба видели эти изменения в чек-листе"
 
 2. Backend folder creation:
-   > "C:\Users\Mike\Projects\void-cms-backend - я создал папку для uv (не pip), FastAPI + WebSocket. У меня есть примеры реализации проектов на FastAPI с устоявшейся структурой, но имеется ли какая-то структура, официальная, как FSD для React? Если нет, то как лучше?"
+   > "C:\Users\Mike\Projects\void-crm-backend - я создал папку для uv (не pip), FastAPI + WebSocket. У меня есть примеры реализации проектов на FastAPI с устоявшейся структурой, но имеется ли какая-то структура, официальная, как FSD для React? Если нет, то как лучше?"
 
 3. Preference selection (via tool):
    - Real-time: "WebSocket (FastAPI) - полный контроль (Recommended)"
@@ -321,7 +321,7 @@ From the todo list created:
 
 ## 8. Current Work
 
-**Immediately Before Summary**: Attempting to create `.env` file for void-cms-backend project configuration.
+**Immediately Before Summary**: Attempting to create `.env` file for void-crm-backend project configuration.
 
 **Context**: After successfully creating `pyproject.toml`, I attempted to create environment configuration files but faced rejections:
 1. First attempted docker-compose.yml - rejected (infrastructure separate)
@@ -342,11 +342,11 @@ API_PORT=8001
 DOCS_PASSWORD=dev_password
 
 # Настройки базы данных PostgreSQL
-POSTGRES_USER=void_cms
+POSTGRES_USER=void_crm
 POSTGRES_PASSWORD=dev_password
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DATABASE=void_cms_db
+POSTGRES_DATABASE=void_crm_db
 
 # Настройки Redis
 REDIS_USER=default

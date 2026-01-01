@@ -22,9 +22,9 @@ class Settings(BaseSettings):
     paths: PathSettings = PathSettings()
 
     # App
-    TITLE: str = "VOID CMS API"
+    TITLE: str = "VOID CRM API"
     VERSION: str = "0.1.0"
-    DESCRIPTION: str = "Backend для внутренней CMS веб-студии"
+    DESCRIPTION: str = "Backend для внутренней CRM веб-студии"
     DEBUG: bool = True
 
     # Server
@@ -32,11 +32,11 @@ class Settings(BaseSettings):
     PORT: int = 8010
 
     # PostgreSQL
-    POSTGRES_USER: str = "void_cms"
+    POSTGRES_USER: str = "void_crm"
     POSTGRES_PASSWORD: SecretStr
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DATABASE: str = "void_cms_db"
+    POSTGRES_DATABASE: str = "void_crm_db"
 
     # Redis
     REDIS_USER: str = "default"

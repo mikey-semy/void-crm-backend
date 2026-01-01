@@ -1,4 +1,4 @@
-# Void CMS Backend
+# Void CRM Backend
 
 FastAPI backend для системы управления веб-студией с чек-листом партнёрства.
 
@@ -37,9 +37,9 @@ uv sync
 
 ```bash
 # Database
-POSTGRES_USER=void_cms_user
+POSTGRES_USER=void_crm_user
 POSTGRES_PASSWORD=your_secure_password
-POSTGRES_DB=void_cms_db
+POSTGRES_DB=void_crm_db
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5435
 

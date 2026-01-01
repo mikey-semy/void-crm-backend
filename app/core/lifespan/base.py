@@ -189,7 +189,7 @@ async def lifespan(app: FastAPI):
         from app.core.lifespan.base import lifespan
 
         app = FastAPI(
-            title="void-cms-backend",
+            title="void-crm-backend",
             lifespan=lifespan
         )
         ```
@@ -207,7 +207,7 @@ async def lifespan(app: FastAPI):
 
         # Создание приложения с автоматическим управлением жизненным циклом
         app = FastAPI(
-            title="void-cms-backend",
+            title="void-crm-backend",
             version="1.0.0",
             lifespan=lifespan
         )
