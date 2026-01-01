@@ -1,0 +1,11 @@
+# Всегда использовать LF для всех текстовых файлов (в том числе Python)
+* text=auto eol=lf
+
+# Явно для Python-файлов
+*.py text eol=lf
+
+# Для shell-скриптов
+*.sh text eol=lf
+
+# Для batch-скриптов (Windows)
+*.bat text eol=crlf
