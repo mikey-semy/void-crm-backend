@@ -269,3 +269,27 @@ class ChecklistTaskRepository(BaseRepository[ChecklistTaskModel]):
         if result:
             await self._invalidate_cache()
         return result
+
+    async def get_tasks_by_category(self, category_id: UUID) -> list[ChecklistTaskModel]:
+        """Получить все задачи категории, отсортированные по order.
+
+        Args:
+            category_id: UUID категории.
+
+        Returns:
+            Список задач категории.
+        """
+        return await self.filter_by_ordered("order", category_id=category_id)
+
+    async def count_by_status(self) -> dict[str, int]:
+        """Подсчитать количество задач по каждому статусу.
+
+        Returns:
+            Словарь с количеством задач по статусам.
+            Example: {"pending": 15, "in_progress": 3, "completed": 8, "skipped": 1}
+        """
+        statuses = ("pending", "in_progress", "completed", "skipped")
+        result = {}
+        for status in statuses:
+            result[status] = await self.count_items(status=status)
+        return result
