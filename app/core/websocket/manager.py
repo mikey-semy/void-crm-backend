@@ -200,22 +200,41 @@ class ConnectionManager:
         Фоновая задача для прослушивания сообщений из Redis PubSub.
 
         Получает сообщения и рассылает их всем локальным WebSocket соединениям.
+        При разрыве соединения автоматически переподключается.
         """
-        try:
-            async for message in self.pubsub.listen():
-                if message["type"] == "message":
-                    try:
-                        data = json.loads(message["data"])
-                        await self._broadcast_local(data)
-                        logger.debug("Получено сообщение из Redis: %s", data.get("type"))
-                    except json.JSONDecodeError as e:
-                        logger.error("Ошибка декодирования JSON из Redis: %s", e)
-        except asyncio.CancelledError:
-            logger.info("Redis PubSub listener остановлен")
-            await self.pubsub.unsubscribe(self.channel_name)
-            await self.pubsub.close()
-        except Exception as e:
-            logger.error("Ошибка в Redis PubSub listener: %s", e)
+        retry_delay = 1.0
+        max_retry_delay = 60.0
+
+        while True:
+            try:
+                async for message in self.pubsub.listen():
+                    if message["type"] == "message":
+                        try:
+                            data = json.loads(message["data"])
+                            await self._broadcast_local(data)
+                            logger.debug("Получено сообщение из Redis: %s", data.get("type"))
+                        except json.JSONDecodeError as e:
+                            logger.error("Ошибка декодирования JSON из Redis: %s", e)
+                    # Сбрасываем задержку при успешном получении сообщения
+                    retry_delay = 1.0
+            except asyncio.CancelledError:
+                logger.info("Redis PubSub listener остановлен")
+                await self.pubsub.unsubscribe(self.channel_name)
+                await self.pubsub.close()
+                break
+            except Exception as e:
+                logger.error("Ошибка в Redis PubSub listener: %s, переподключение через %s сек", e, retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_retry_delay)
+
+                # Переподключаемся к Redis PubSub
+                try:
+                    await self.pubsub.close()
+                    self.pubsub = self.redis.pubsub()
+                    await self.pubsub.subscribe(self.channel_name)
+                    logger.info("✨ Переподключились к Redis PubSub")
+                except Exception as reconnect_error:
+                    logger.error("Ошибка переподключения к Redis PubSub: %s", reconnect_error)
 
     async def notify_task_updated(self, task_id: UUID, task_data: dict[str, Any]) -> None:
         """
