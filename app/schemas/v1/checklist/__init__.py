@@ -10,7 +10,9 @@ from .base import (
 from .requests import (
     ChecklistCategoryCreateSchema,
     ChecklistCategoryUpdateSchema,
+    ChecklistTaskAssigneeUpdateSchema,
     ChecklistTaskCreateSchema,
+    ChecklistTaskNotesUpdateSchema,
     ChecklistTaskStatusUpdateSchema,
     ChecklistTaskUpdateSchema,
 )
@@ -37,6 +39,8 @@ __all__ = [
     "ChecklistTaskCreateSchema",
     "ChecklistTaskUpdateSchema",
     "ChecklistTaskStatusUpdateSchema",
+    "ChecklistTaskNotesUpdateSchema",
+    "ChecklistTaskAssigneeUpdateSchema",
     # Response schemas
     "ChecklistCategoryResponseSchema",
     "ChecklistCategoryListResponseSchema",

@@ -105,3 +105,25 @@ class ChecklistTaskStatusUpdateSchema(BaseRequestSchema):
     """
 
     status: Literal["pending", "in_progress", "completed", "skipped"] = Field(description="Новый статус задачи")
+
+
+class ChecklistTaskNotesUpdateSchema(BaseRequestSchema):
+    """
+    Схема для быстрого обновления заметок задачи.
+
+    Attributes:
+        notes: Новые заметки к задаче.
+    """
+
+    notes: str = Field(max_length=5000, description="Новые заметки к задаче")
+
+
+class ChecklistTaskAssigneeUpdateSchema(BaseRequestSchema):
+    """
+    Схема для быстрого обновления исполнителя задачи.
+
+    Attributes:
+        assignee: Новый исполнитель задачи.
+    """
+
+    assignee: Literal["partner1", "partner2", "both"] = Field(description="Новый исполнитель задачи")

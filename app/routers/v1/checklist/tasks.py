@@ -10,9 +10,11 @@ from app.core.dependencies.checklist import ChecklistServiceDep
 from app.core.dependencies.websocket import WebSocketManagerDep
 from app.routers.base import BaseRouter
 from app.schemas.v1.checklist import (
+    ChecklistTaskAssigneeUpdateSchema,
     ChecklistTaskCreateSchema,
     ChecklistTaskListItemSchema,
     ChecklistTaskListResponseSchema,
+    ChecklistTaskNotesUpdateSchema,
     ChecklistTaskResponseSchema,
     ChecklistTaskStatusUpdateSchema,
     ChecklistTaskUpdateSchema,
@@ -211,12 +213,12 @@ class ChecklistTaskRouter(BaseRouter):
         )
         async def update_task_notes(
             task_id: UUID,
-            notes: str,
+            data: ChecklistTaskNotesUpdateSchema,
             service: ChecklistServiceDep,
             ws_manager: WebSocketManagerDep,
         ) -> ChecklistTaskResponseSchema:
             """Обновляет заметки задачи чек-листа."""
-            task = await service.update_task(task_id, {"notes": notes})
+            task = await service.update_task(task_id, {"notes": data.notes})
             schema = ChecklistTaskListItemSchema.model_validate(task)
 
             # Отправляем событие всем подключенным клиентам
@@ -249,12 +251,12 @@ class ChecklistTaskRouter(BaseRouter):
         )
         async def update_task_assignee(
             task_id: UUID,
-            assignee: str,
+            data: ChecklistTaskAssigneeUpdateSchema,
             service: ChecklistServiceDep,
             ws_manager: WebSocketManagerDep,
         ) -> ChecklistTaskResponseSchema:
             """Обновляет исполнителя задачи чек-листа."""
-            task = await service.update_task(task_id, {"assignee": assignee})
+            task = await service.update_task(task_id, {"assignee": data.assignee})
             schema = ChecklistTaskListItemSchema.model_validate(task)
 
             # Отправляем событие всем подключенным клиентам
