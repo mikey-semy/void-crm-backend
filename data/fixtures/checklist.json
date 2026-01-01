@@ -1,0 +1,1016 @@
+[
+  {
+    "id": "finance",
+    "title": "Финансы и ценообразование",
+    "description": "Прайс-лист, распределение дохода, система оплат",
+    "icon": "DollarSign",
+    "color": "#10b981",
+    "order": 1,
+    "tasks": [
+      {
+        "id": "f1",
+        "title": "Определить базовые расценки на типовые проекты",
+        "description": "Лендинг, интернет-магазин, корпоративный сайт, CRM и другие типовые решения",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "finance",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "f2",
+        "title": "Договориться о распределении прибыли",
+        "description": "Процентное соотношение или фиксированная оплата за задачи",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "finance",
+        "order": 2,
+        "assignee": "both"
+      },
+      {
+        "id": "f3",
+        "title": "Выбрать, кто выставляет счета клиентам",
+        "description": "Определить ответственного за финансовые документы",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "finance",
+        "order": 3
+      },
+      {
+        "id": "f4",
+        "title": "Решить вопрос с общим счётом или раздельными",
+        "description": "Единый расчётный счёт или каждый использует свой",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "finance",
+        "order": 4
+      },
+      {
+        "id": "f5",
+        "title": "Установить процент предоплаты от клиентов",
+        "description": "Стандартный процент предоплаты для защиты от неплательщиков",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "finance",
+        "order": 5
+      },
+      {
+        "id": "f6",
+        "title": "Внедрить систему учёта времени",
+        "description": "Toggl, Clockify или аналог для понимания реальных затрат",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "finance",
+        "order": 6
+      },
+      {
+        "id": "f7",
+        "title": "Создать шаблон прайс-листа",
+        "description": "Единый документ с ценами для отправки клиентам",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "finance",
+        "order": 7
+      },
+      {
+        "id": "f8",
+        "title": "Определить политику возврата средств",
+        "description": "Условия возврата предоплаты при отказе от проекта",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "finance",
+        "order": 8
+      },
+      {
+        "id": "f9",
+        "title": "Установить правила по допработам",
+        "description": "Как оцениваются и оплачиваются изменения вне исходного ТЗ",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "finance",
+        "order": 9
+      },
+      {
+        "id": "f10",
+        "title": "Определить расходы на общие нужды",
+        "description": "Хостинг, подписки на сервисы, лицензии - кто и как оплачивает",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "finance",
+        "order": 10
+      },
+      {
+        "id": "f11",
+        "title": "Создать систему финансовой отчётности",
+        "description": "Регулярные отчёты о доходах, расходах и прибыли",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "finance",
+        "order": 11
+      }
+    ]
+  },
+  {
+    "id": "communication",
+    "title": "Коммуникации",
+    "description": "Мессенджеры, созвоны, рабочие часы",
+    "icon": "MessageSquare",
+    "color": "#3b82f6",
+    "order": 2,
+    "tasks": [
+      {
+        "id": "c1",
+        "title": "Выбрать основной мессенджер",
+        "description": "Telegram, Slack, Discord или другая платформа для общения",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "communication",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "c2",
+        "title": "Договориться о времени отклика в рабочее время",
+        "description": "Максимальное время на ответ в мессенджере (30 мин, 1 час?)",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "communication",
+        "order": 2
+      },
+      {
+        "id": "c3",
+        "title": "Определить рабочие часы каждого партнёра",
+        "description": "График работы, когда каждый доступен",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "communication",
+        "order": 3
+      },
+      {
+        "id": "c4",
+        "title": "Настроить регулярные созвоны",
+        "description": "Ежедневные стендапы или еженедельные встречи",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "communication",
+        "order": 4
+      },
+      {
+        "id": "c5",
+        "title": "Создать канал для срочных вопросов",
+        "description": "Отдельный чат или способ связи для критических ситуаций",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "communication",
+        "order": 5
+      },
+      {
+        "id": "c6",
+        "title": "Установить правила оповещений",
+        "description": "Когда можно писать в нерабочее время, как реагировать на уведомления",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "communication",
+        "order": 6
+      },
+      {
+        "id": "c7",
+        "title": "Определить процесс обсуждения конфликтов",
+        "description": "Как разрешать разногласия по техническим или организационным вопросам",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "communication",
+        "order": 7
+      },
+      {
+        "id": "c8",
+        "title": "Настроить систему статусов",
+        "description": "Индикаторы доступности: работаю, занят, отдыхаю, в отпуске",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "communication",
+        "order": 8
+      }
+    ]
+  },
+  {
+    "id": "projects",
+    "title": "Управление проектами",
+    "description": "Канбан, задачи, документация",
+    "icon": "FolderKanban",
+    "color": "#a855f7",
+    "order": 3,
+    "tasks": [
+      {
+        "id": "p1",
+        "title": "Выбрать канбан-доску",
+        "description": "Notion, Trello, Linear, GitHub Projects или другой инструмент",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "projects",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "p2",
+        "title": "Определить методику декомпозиции задач",
+        "description": "Как разбиваем большие задачи на подзадачи",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "projects",
+        "order": 2
+      },
+      {
+        "id": "p3",
+        "title": "Решить, кто будет основным контактом с клиентом",
+        "description": "Кто общается с заказчиком или оба поочерёдно",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "projects",
+        "order": 3
+      },
+      {
+        "id": "p4",
+        "title": "Создать шаблон технического задания",
+        "description": "Единая структура ТЗ для всех проектов",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "projects",
+        "order": 4
+      },
+      {
+        "id": "p5",
+        "title": "Настроить систему документирования проектов",
+        "description": "Где и как храним документы, API docs, инструкции",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "projects",
+        "order": 5
+      },
+      {
+        "id": "p6",
+        "title": "Определить процесс приёмки задач",
+        "description": "Code review, тестирование, критерии готовности",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "projects",
+        "order": 6
+      },
+      {
+        "id": "p7",
+        "title": "Создать шаблон договора с клиентом",
+        "description": "Стандартный договор на разработку ПО",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "projects",
+        "order": 7
+      },
+      {
+        "id": "p8",
+        "title": "Установить процесс оценки сроков",
+        "description": "Методика estimation: story points, hours, или другая система",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "projects",
+        "order": 8
+      },
+      {
+        "id": "p9",
+        "title": "Определить политику работы с багами",
+        "description": "Сроки исправления, приоритизация, гарантийная поддержка",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "projects",
+        "order": 9
+      },
+      {
+        "id": "p10",
+        "title": "Создать процесс передачи проектов клиенту",
+        "description": "Что передаём: код, документация, доступы, обучение",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "projects",
+        "order": 10
+      }
+    ]
+  },
+  {
+    "id": "techstack",
+    "title": "Технический стек и стандарты",
+    "description": "Стек, code style, AI-инструменты",
+    "icon": "Code2",
+    "color": "#f97316",
+    "order": 4,
+    "tasks": [
+      {
+        "id": "t1",
+        "title": "Утвердить основной стек",
+        "description": "FastAPI + Next.js + React + TypeScript как база",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "techstack",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "t2",
+        "title": "Настроить ESLint и Prettier с общим конфигом",
+        "description": "Единые правила форматирования кода",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "techstack",
+        "order": 2
+      },
+      {
+        "id": "t3",
+        "title": "Договориться о code style guidelines",
+        "description": "Naming conventions, структура файлов, комментарии",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "techstack",
+        "order": 3
+      },
+      {
+        "id": "t4",
+        "title": "Создать бойлерплейты проектов",
+        "description": "Готовые шаблоны для быстрого старта новых проектов",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "techstack",
+        "order": 4
+      },
+      {
+        "id": "t5",
+        "title": "Определить список одобренных библиотек",
+        "description": "shadcn/ui, Zustand, date-fns и другие стандартные зависимости",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "techstack",
+        "order": 5
+      },
+      {
+        "id": "t6",
+        "title": "Договориться об использовании AI-инструментов",
+        "description": "Claude Code, Cursor, GitHub Copilot - какие используем и как",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "techstack",
+        "order": 6
+      },
+      {
+        "id": "t7",
+        "title": "Создать чек-лист code review",
+        "description": "На что обращать внимание при проверке кода партнёра",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "techstack",
+        "order": 7
+      },
+      {
+        "id": "t8",
+        "title": "Настроить единую структуру проектов",
+        "description": "FSD или другая архитектура для всех проектов",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "techstack",
+        "order": 8
+      },
+      {
+        "id": "t9",
+        "title": "Определить стратегию тестирования",
+        "description": "Unit, integration, E2E тесты - что обязательно, что опционально",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "techstack",
+        "order": 9
+      },
+      {
+        "id": "t10",
+        "title": "Выбрать инструменты для тестирования",
+        "description": "Jest, Vitest, Playwright, Cypress - стандартный набор",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "techstack",
+        "order": 10
+      },
+      {
+        "id": "t11",
+        "title": "Настроить систему логирования",
+        "description": "Единый подход к логам в frontend и backend",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "techstack",
+        "order": 11
+      },
+      {
+        "id": "t12",
+        "title": "Определить подход к мониторингу ошибок",
+        "description": "Sentry, LogRocket или другие инструменты для tracking багов",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "techstack",
+        "order": 12
+      }
+    ]
+  },
+  {
+    "id": "git",
+    "title": "Git и репозитории",
+    "description": "Хостинг, branching, code review",
+    "icon": "GitBranch",
+    "color": "#6b7280",
+    "order": 5,
+    "tasks": [
+      {
+        "id": "g1",
+        "title": "Выбрать платформу",
+        "description": "GitHub, GitLab или другой Git хостинг",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "git",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "g2",
+        "title": "Создать организацию или использовать личные аккаунты",
+        "description": "Решить вопрос с владением репозиториями",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "git",
+        "order": 2
+      },
+      {
+        "id": "g3",
+        "title": "Определить branching strategy",
+        "description": "GitFlow, trunk-based development или другой подход",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "git",
+        "order": 3
+      },
+      {
+        "id": "g4",
+        "title": "Установить правила code review",
+        "description": "Обязателен ли ревью, кто проверяет, как быстро",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "git",
+        "order": 4
+      },
+      {
+        "id": "g5",
+        "title": "Настроить conventional commits",
+        "description": "Единый формат commit messages (feat:, fix:, docs: и т.д.)",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "git",
+        "order": 5
+      },
+      {
+        "id": "g6",
+        "title": "Определить, кто имеет права на merge в main",
+        "description": "Оба или нужно согласие второго партнёра",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "git",
+        "order": 6
+      },
+      {
+        "id": "g7",
+        "title": "Создать шаблоны issues и Pull Requests",
+        "description": "Стандартные формы для задач и PR",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "git",
+        "order": 7
+      },
+      {
+        "id": "g8",
+        "title": "Настроить защиту веток",
+        "description": "Branch protection rules для main/develop веток",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "git",
+        "order": 8
+      },
+      {
+        "id": "g9",
+        "title": "Определить стратегию работы с тегами и релизами",
+        "description": "Semantic versioning, changelog, release notes",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "git",
+        "order": 9
+      }
+    ]
+  },
+  {
+    "id": "deploy",
+    "title": "Деплой и инфраструктура",
+    "description": "Хостинг, CI/CD, серверы",
+    "icon": "Server",
+    "color": "#06b6d4",
+    "order": 6,
+    "tasks": [
+      {
+        "id": "d1",
+        "title": "Выбрать хостинг",
+        "description": "VPS, Vercel, Railway, DigitalOcean или комбинация",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "deploy",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "d2",
+        "title": "Определить, чьи серверы / кто платит",
+        "description": "Финансовая ответственность за инфраструктуру",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "deploy",
+        "order": 2
+      },
+      {
+        "id": "d3",
+        "title": "Настроить доступы",
+        "description": "У обоих партнёров доступ или один администратор",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "deploy",
+        "order": 3
+      },
+      {
+        "id": "d4",
+        "title": "Настроить CI/CD pipeline",
+        "description": "GitHub Actions, GitLab CI или другой инструмент",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "deploy",
+        "order": 4
+      },
+      {
+        "id": "d5",
+        "title": "Создать стандартную Docker-конфигурацию",
+        "description": "Dockerfile и docker-compose для всех проектов",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "deploy",
+        "order": 5
+      },
+      {
+        "id": "d6",
+        "title": "Документировать процесс деплоя",
+        "description": "Пошаговая инструкция по развёртыванию проектов",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "deploy",
+        "order": 6
+      },
+      {
+        "id": "d7",
+        "title": "Настроить мониторинг инфраструктуры",
+        "description": "Uptime monitoring, alerts при падении сервисов",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "deploy",
+        "order": 7
+      },
+      {
+        "id": "d8",
+        "title": "Создать процесс резервного копирования",
+        "description": "Backup баз данных и критичных данных клиентов",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "deploy",
+        "order": 8
+      },
+      {
+        "id": "d9",
+        "title": "Определить стратегию SSL сертификатов",
+        "description": "Let's Encrypt автоматизация или платные сертификаты",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "deploy",
+        "order": 9
+      },
+      {
+        "id": "d10",
+        "title": "Настроить staging окружение",
+        "description": "Тестовый сервер для проверки перед production",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "deploy",
+        "order": 10
+      }
+    ]
+  },
+  {
+    "id": "legal",
+    "title": "Юридическое и зоны ответственности",
+    "description": "Договоры, NDA, ответственность",
+    "icon": "Scale",
+    "color": "#ef4444",
+    "order": 7,
+    "tasks": [
+      {
+        "id": "l1",
+        "title": "Составить базовый договор между партнёрами",
+        "description": "Юридическое оформление партнёрства",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "legal",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "l2",
+        "title": "Определить, кто подписывает договоры с клиентами",
+        "description": "Один представитель или оба подписывают",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "legal",
+        "order": 2
+      },
+      {
+        "id": "l3",
+        "title": "Разделить ответственность",
+        "description": "Кто фронтенд, кто бэкенд или оба делают всё",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "legal",
+        "order": 3
+      },
+      {
+        "id": "l4",
+        "title": "Определить процесс при выходе одного партнёра",
+        "description": "Что происходит с проектами, клиентами, активами",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "legal",
+        "order": 4
+      },
+      {
+        "id": "l5",
+        "title": "Подписать NDA по клиентским данным",
+        "description": "Соглашение о неразглашении между партнёрами",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "legal",
+        "order": 5
+      },
+      {
+        "id": "l6",
+        "title": "Создать шаблон договора с клиентом",
+        "description": "Типовой договор на оказание услуг разработки",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "legal",
+        "order": 6
+      },
+      {
+        "id": "l7",
+        "title": "Определить условия интеллектуальной собственности",
+        "description": "Кому принадлежат права на код: клиенту, студии, или совместно",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "legal",
+        "order": 7
+      },
+      {
+        "id": "l8",
+        "title": "Установить правила использования open-source кода",
+        "description": "Какие лицензии допустимы, как атрибутировать авторство",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "legal",
+        "order": 8
+      },
+      {
+        "id": "l9",
+        "title": "Оформить страхование профессиональной ответственности",
+        "description": "Защита от исков клиентов при ошибках в коде",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "legal",
+        "order": 9
+      }
+    ]
+  },
+  {
+    "id": "sales",
+    "title": "Клиенты и продажи",
+    "description": "Поиск клиентов, портфолио, бренд",
+    "icon": "Users",
+    "color": "#eab308",
+    "order": 8,
+    "tasks": [
+      {
+        "id": "s1",
+        "title": "Договориться, как ищем клиентов",
+        "description": "Вместе ищем или каждый приводит своих",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "sales",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "s2",
+        "title": "Создать общее портфолио или раздельные",
+        "description": "Единое портфолио студии или у каждого своё",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "sales",
+        "order": 2
+      },
+      {
+        "id": "s3",
+        "title": "Определить единый бренд / название студии",
+        "description": "Выступаем как студия или как фрилансеры",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "sales",
+        "order": 3
+      },
+      {
+        "id": "s4",
+        "title": "Создать сайт-визитку студии",
+        "description": "Простой landing с контактами и портфолио",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "sales",
+        "order": 4
+      },
+      {
+        "id": "s5",
+        "title": "Настроить CRM для клиентов",
+        "description": "Система учёта клиентов и сделок",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "sales",
+        "order": 5
+      },
+      {
+        "id": "s6",
+        "title": "Подготовить коммерческие предложения",
+        "description": "Шаблоны КП для разных типов проектов",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "sales",
+        "order": 6
+      },
+      {
+        "id": "s7",
+        "title": "Определить каналы привлечения клиентов",
+        "description": "Биржи фриланса, соцсети, реклама, рекомендации",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "sales",
+        "order": 7
+      },
+      {
+        "id": "s8",
+        "title": "Создать систему сбора отзывов",
+        "description": "Как и когда просить feedback у клиентов",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "sales",
+        "order": 8
+      },
+      {
+        "id": "s9",
+        "title": "Настроить процесс квалификации лидов",
+        "description": "Критерии отбора клиентов: бюджет, сроки, адекватность",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "sales",
+        "order": 9
+      }
+    ]
+  },
+  {
+    "id": "testing",
+    "title": "Тестовый период",
+    "description": "Пробные проекты, оценка эффективности",
+    "icon": "TestTube2",
+    "color": "#ec4899",
+    "order": 9,
+    "tasks": [
+      {
+        "id": "te1",
+        "title": "Запланировать 1-2 пробных проекта",
+        "description": "Небольшие проекты для тестирования совместной работы",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "testing",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "te2",
+        "title": "Назначить точку ревью",
+        "description": "Дата для обсуждения результатов (через месяц)",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "testing",
+        "order": 2
+      },
+      {
+        "id": "te3",
+        "title": "Подготовить критерии оценки эффективности партнёрства",
+        "description": "Метрики успеха: прибыль, скорость, качество, удовлетворённость",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "testing",
+        "order": 3
+      },
+      {
+        "id": "te4",
+        "title": "Установить правила сбора обратной связи",
+        "description": "Как обсуждать что работает, а что нет в процессе",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "testing",
+        "order": 4
+      }
+    ]
+  },
+  {
+    "id": "security",
+    "title": "Безопасность",
+    "description": "Защита данных, доступы, секреты",
+    "icon": "Shield",
+    "color": "#8b5cf6",
+    "order": 10,
+    "tasks": [
+      {
+        "id": "sec1",
+        "title": "Настроить управление секретами",
+        "description": "Где и как храним API ключи, пароли, токены",
+        "status": "pending",
+        "priority": "critical",
+        "categoryId": "security",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "sec2",
+        "title": "Определить политику доступов к сервисам",
+        "description": "Двухфакторная аутентификация, менеджер паролей",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "security",
+        "order": 2
+      },
+      {
+        "id": "sec3",
+        "title": "Создать процесс ротации секретов",
+        "description": "Как часто меняем пароли и токены",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "security",
+        "order": 3
+      },
+      {
+        "id": "sec4",
+        "title": "Настроить безопасность БД",
+        "description": "Шифрование, бэкапы, ограничение доступа",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "security",
+        "order": 4
+      },
+      {
+        "id": "sec5",
+        "title": "Определить процесс реагирования на инциденты",
+        "description": "Что делать при утечке данных или взломе",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "security",
+        "order": 5
+      },
+      {
+        "id": "sec6",
+        "title": "Создать чек-лист безопасности для проектов",
+        "description": "OWASP Top 10, HTTPS, санитизация ввода и т.д.",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "security",
+        "order": 6
+      }
+    ]
+  },
+  {
+    "id": "support",
+    "title": "Поддержка и сопровождение",
+    "description": "Послепродажное обслуживание клиентов",
+    "icon": "Headphones",
+    "color": "#14b8a6",
+    "order": 11,
+    "tasks": [
+      {
+        "id": "sup1",
+        "title": "Определить условия гарантийной поддержки",
+        "description": "Срок бесплатной поддержки после сдачи проекта",
+        "status": "pending",
+        "priority": "high",
+        "categoryId": "support",
+        "order": 1,
+        "assignee": "both"
+      },
+      {
+        "id": "sup2",
+        "title": "Создать прайс на платную поддержку",
+        "description": "Почасовая оплата или абонентская плата",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "support",
+        "order": 2
+      },
+      {
+        "id": "sup3",
+        "title": "Настроить систему тикетов для клиентов",
+        "description": "Как клиенты сообщают о проблемах: email, форма, портал",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "support",
+        "order": 3
+      },
+      {
+        "id": "sup4",
+        "title": "Определить SLA для различных типов проблем",
+        "description": "Время реакции на критические и некритические баги",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "support",
+        "order": 4
+      },
+      {
+        "id": "sup5",
+        "title": "Создать базу знаний для типовых проблем",
+        "description": "FAQ и инструкции для клиентов",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "support",
+        "order": 5
+      }
+    ]
+  },
+  {
+    "id": "growth",
+    "title": "Развитие и масштабирование",
+    "description": "Рост команды, развитие навыков",
+    "icon": "TrendingUp",
+    "color": "#f59e0b",
+    "order": 12,
+    "tasks": [
+      {
+        "id": "gr1",
+        "title": "Определить план развития навыков",
+        "description": "Какие технологии изучаем, бюджет на курсы",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "growth",
+        "order": 1
+      },
+      {
+        "id": "gr2",
+        "title": "Обсудить возможность найма сотрудников",
+        "description": "Когда и как привлекаем дополнительных разработчиков",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "growth",
+        "order": 2
+      },
+      {
+        "id": "gr3",
+        "title": "Создать процесс обмена знаниями",
+        "description": "Внутренние воркшопы, code reviews как обучение",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "growth",
+        "order": 3
+      },
+      {
+        "id": "gr4",
+        "title": "Определить финансовые цели",
+        "description": "Целевой доход, планы реинвестирования прибыли",
+        "status": "pending",
+        "priority": "medium",
+        "categoryId": "growth",
+        "order": 4
+      },
+      {
+        "id": "gr5",
+        "title": "Планировать участие в конференциях",
+        "description": "Нетворкинг, обучение, продвижение бренда",
+        "status": "pending",
+        "priority": "low",
+        "categoryId": "growth",
+        "order": 5
+      }
+    ]
+  }
+]
