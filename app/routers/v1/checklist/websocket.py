@@ -10,29 +10,10 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.routing import APIRouter
 
 from app.core.dependencies.cache import RedisDep
-from app.core.websocket import ConnectionManager
+from app.core.dependencies.websocket import get_websocket_manager
 from app.schemas.websocket import ConnectionEstablishedSchema, HeartbeatResponseSchema
 
 logger = logging.getLogger(__name__)
-
-# Глобальный экземпляр менеджера подключений
-manager: ConnectionManager | None = None
-
-
-def get_websocket_manager(redis: RedisDep) -> ConnectionManager:
-    """
-    Получает глобальный экземпляр ConnectionManager.
-
-    Args:
-        redis: Redis клиент
-
-    Returns:
-        ConnectionManager: Экземпляр менеджера подключений
-    """
-    global manager
-    if manager is None:
-        manager = ConnectionManager(redis=redis, channel="checklist:updates")
-    return manager
 
 
 class ChecklistWebSocketRouter:

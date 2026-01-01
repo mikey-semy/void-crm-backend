@@ -7,6 +7,7 @@
 from uuid import UUID
 
 from app.core.dependencies.checklist import ChecklistServiceDep
+from app.core.dependencies.websocket import WebSocketManagerDep
 from app.routers.base import BaseRouter
 from app.schemas.v1.checklist import (
     ChecklistTaskCreateSchema,
@@ -89,10 +90,19 @@ class ChecklistTaskRouter(BaseRouter):
         async def create_task(
             data: ChecklistTaskCreateSchema,
             service: ChecklistServiceDep,
+            ws_manager: WebSocketManagerDep,
         ) -> ChecklistTaskResponseSchema:
             """Создаёт новую задачу чек-листа."""
             task = await service.create_task(data.model_dump())
             schema = ChecklistTaskListItemSchema.model_validate(task)
+
+            # Отправляем событие всем подключенным клиентам
+            await ws_manager.broadcast(
+                {
+                    "type": "task:created",
+                    "data": schema.model_dump(mode="json"),
+                }
+            )
 
             return ChecklistTaskResponseSchema(success=True, message="Задача создана", data=schema)
 
@@ -125,11 +135,20 @@ class ChecklistTaskRouter(BaseRouter):
             task_id: UUID,
             data: ChecklistTaskUpdateSchema,
             service: ChecklistServiceDep,
+            ws_manager: WebSocketManagerDep,
         ) -> ChecklistTaskResponseSchema:
             """Обновляет задачу чек-листа."""
             update_data = data.model_dump(exclude_unset=True)
             task = await service.update_task(task_id, update_data)
             schema = ChecklistTaskListItemSchema.model_validate(task)
+
+            # Отправляем событие всем подключенным клиентам
+            await ws_manager.broadcast(
+                {
+                    "type": "task:updated",
+                    "data": schema.model_dump(mode="json"),
+                }
+            )
 
             return ChecklistTaskResponseSchema(success=True, message="Задача обновлена", data=schema)
 
@@ -156,10 +175,19 @@ class ChecklistTaskRouter(BaseRouter):
             task_id: UUID,
             data: ChecklistTaskStatusUpdateSchema,
             service: ChecklistServiceDep,
+            ws_manager: WebSocketManagerDep,
         ) -> ChecklistTaskResponseSchema:
             """Обновляет статус задачи чек-листа."""
             task = await service.update_task_status(task_id, data.status)
             schema = ChecklistTaskListItemSchema.model_validate(task)
+
+            # Отправляем событие всем подключенным клиентам
+            await ws_manager.broadcast(
+                {
+                    "type": "task:updated",
+                    "data": schema.model_dump(mode="json"),
+                }
+            )
 
             return ChecklistTaskResponseSchema(success=True, message="Статус задачи обновлён", data=schema)
 
@@ -181,9 +209,18 @@ class ChecklistTaskRouter(BaseRouter):
         async def delete_task(
             task_id: UUID,
             service: ChecklistServiceDep,
+            ws_manager: WebSocketManagerDep,
         ) -> ChecklistTaskListResponseSchema:
             """Удаляет задачу чек-листа."""
             await service.delete_task(task_id)
+
+            # Отправляем событие всем подключенным клиентам
+            await ws_manager.broadcast(
+                {
+                    "type": "task:deleted",
+                    "data": {"id": str(task_id)},
+                }
+            )
 
             return ChecklistTaskListResponseSchema(success=True, message="Задача удалена", data=[])
 
