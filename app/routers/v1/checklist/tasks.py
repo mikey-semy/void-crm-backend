@@ -191,6 +191,82 @@ class ChecklistTaskRouter(BaseRouter):
 
             return ChecklistTaskResponseSchema(success=True, message="Статус задачи обновлён", data=schema)
 
+        @self.router.patch(
+            path="/{task_id}/notes",
+            response_model=ChecklistTaskResponseSchema,
+            description="""\
+## 📝 Обновить заметки задачи
+
+Быстрое обновление только заметок задачи.
+
+### Path Parameters:
+- **task_id** — UUID задачи
+
+### Request Body:
+- **notes** — Новые заметки
+
+### Returns:
+- Обновлённая задача
+""",
+        )
+        async def update_task_notes(
+            task_id: UUID,
+            notes: str,
+            service: ChecklistServiceDep,
+            ws_manager: WebSocketManagerDep,
+        ) -> ChecklistTaskResponseSchema:
+            """Обновляет заметки задачи чек-листа."""
+            task = await service.update_task(task_id, {"notes": notes})
+            schema = ChecklistTaskListItemSchema.model_validate(task)
+
+            # Отправляем событие всем подключенным клиентам
+            await ws_manager.broadcast(
+                {
+                    "type": "task:updated",
+                    "data": schema.model_dump(mode="json"),
+                }
+            )
+
+            return ChecklistTaskResponseSchema(success=True, message="Заметки задачи обновлены", data=schema)
+
+        @self.router.patch(
+            path="/{task_id}/assignee",
+            response_model=ChecklistTaskResponseSchema,
+            description="""\
+## 👤 Обновить исполнителя задачи
+
+Быстрое обновление только исполнителя задачи.
+
+### Path Parameters:
+- **task_id** — UUID задачи
+
+### Request Body:
+- **assignee** — Новый исполнитель (partner1, partner2, both)
+
+### Returns:
+- Обновлённая задача
+""",
+        )
+        async def update_task_assignee(
+            task_id: UUID,
+            assignee: str,
+            service: ChecklistServiceDep,
+            ws_manager: WebSocketManagerDep,
+        ) -> ChecklistTaskResponseSchema:
+            """Обновляет исполнителя задачи чек-листа."""
+            task = await service.update_task(task_id, {"assignee": assignee})
+            schema = ChecklistTaskListItemSchema.model_validate(task)
+
+            # Отправляем событие всем подключенным клиентам
+            await ws_manager.broadcast(
+                {
+                    "type": "task:updated",
+                    "data": schema.model_dump(mode="json"),
+                }
+            )
+
+            return ChecklistTaskResponseSchema(success=True, message="Исполнитель задачи обновлён", data=schema)
+
         @self.router.delete(
             path="/{task_id}",
             response_model=ChecklistTaskListResponseSchema,
