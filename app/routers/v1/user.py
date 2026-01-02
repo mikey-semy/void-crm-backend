@@ -27,6 +27,7 @@ from app.schemas import (
     UserPublicProfileResponseSchema,
     UserPublicProfileSchema,
     UserUpdateSchema,
+    UsersListResponseSchema,
 )
 
 
@@ -244,6 +245,51 @@ class UserRouter(ProtectedRouter):
                 success=True,
                 message="Аккаунт деактивирован",
                 data=schema,
+            )
+
+        # ==================== СПИСОК ПОЛЬЗОВАТЕЛЕЙ ====================
+
+        @self.router.get(
+            path="",
+            response_model=UsersListResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 👥 Получить список всех пользователей
+
+Возвращает список всех активных пользователей системы.
+
+### Требования:
+- JWT токен в заголовке Authorization
+
+### Returns:
+- Список пользователей с публичной информацией
+
+### Errors:
+- **401** — токен отсутствует или невалиден
+""",
+        )
+        async def get_all_users(
+            service: UserServiceDep = None,
+            current_user: CurrentUserDep = None,
+        ) -> UsersListResponseSchema:
+            """
+            Получает список всех активных пользователей.
+
+            Args:
+                service: Сервис пользователей (dependency injection)
+                current_user: Текущий аутентифицированный пользователь
+
+            Returns:
+                UsersListResponseSchema: Список пользователей
+            """
+            users = await service.get_all_users()
+
+            schemas = [UserPublicProfileSchema.model_validate(user) for user in users]
+
+            return UsersListResponseSchema(
+                success=True,
+                message="Список пользователей получен",
+                data=schemas,
             )
 
         # ==================== ПУБЛИЧНЫЙ ПРОФИЛЬ ====================

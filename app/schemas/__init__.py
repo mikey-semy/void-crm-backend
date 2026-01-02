@@ -69,7 +69,8 @@ from .v1.users import (
     UserPublicProfileSchema,
     UserResponseSchema,
     UserUpdateSchema,
-    ProfileResponseSchema
+    UsersListResponseSchema,
+    ProfileResponseSchema,
 )
 __all__ = [
     # Common
@@ -130,5 +131,6 @@ __all__ = [
     "UserPasswordChangedResponseSchema",
     "UserPublicProfileSchema",
     "UserPublicProfileResponseSchema",
-    "ProfileResponseSchema"
+    "UsersListResponseSchema",
+    "ProfileResponseSchema",
 ]

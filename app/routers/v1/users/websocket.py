@@ -162,6 +162,21 @@ class UsersWebSocketRouter:
                         await connection_manager.send_personal_message(
                             pong_message.model_dump(), websocket
                         )
+                    # Обработка активности - пользователь активен
+                    elif data == "activity":
+                        await connection_manager.update_user_activity(
+                            str(user_id), "online"
+                        )
+                    # Обработка статуса "отошёл"
+                    elif data == "away":
+                        await connection_manager.update_user_activity(
+                            str(user_id), "away"
+                        )
+                    # Обработка статуса "неактивен"
+                    elif data == "idle":
+                        await connection_manager.update_user_activity(
+                            str(user_id), "idle"
+                        )
 
             except WebSocketDisconnect:
                 await connection_manager.disconnect_authenticated(user_id)

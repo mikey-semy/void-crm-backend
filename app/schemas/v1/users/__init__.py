@@ -22,6 +22,7 @@ from .responses import (
     UserPasswordChangedResponseSchema,
     UserPublicProfileResponseSchema,
     UserResponseSchema,
+    UsersListResponseSchema,
 )
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
     "UserPasswordChangedResponseSchema",
     "UserPublicProfileResponseSchema",
     "UserResponseSchema",
+    "UsersListResponseSchema",
 ]

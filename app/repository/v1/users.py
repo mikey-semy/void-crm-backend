@@ -332,3 +332,23 @@ class UserRepository(BaseRepository[UserModel]):
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_all_active_users(self) -> list[UserModel]:
+        """
+        Получить всех активных пользователей.
+
+        Returns:
+            Список всех активных UserModel с загруженными ролями.
+
+        Example:
+            >>> users = await repo.get_all_active_users()
+        """
+        stmt = (
+            select(UserModel)
+            .options(*self.default_options)
+            .where(UserModel.is_active == True)  # noqa: E712
+            .order_by(UserModel.username)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

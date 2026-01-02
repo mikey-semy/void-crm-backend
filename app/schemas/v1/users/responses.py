@@ -61,3 +61,13 @@ class UserPublicProfileResponseSchema(BaseResponseSchema):
     """
 
     data: UserPublicProfileSchema
+
+
+class UsersListResponseSchema(BaseResponseSchema):
+    """
+    Схема ответа со списком всех пользователей.
+
+    Используется для endpoint'а GET /users.
+    """
+
+    data: list[UserPublicProfileSchema]

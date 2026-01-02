@@ -259,3 +259,15 @@ class UserService(BaseService):
         admins = await self.repository.get_users_by_role("admin")
         self.logger.debug("Найдено администраторов: %d", len(admins))
         return admins
+
+    async def get_all_users(self) -> list[UserModel]:
+        """
+        Получает список всех активных пользователей.
+
+        Returns:
+            list[UserModel]: Список пользователей.
+        """
+        self.logger.info("Получение списка всех пользователей")
+        users = await self.repository.get_all_active_users()
+        self.logger.debug("Найдено пользователей: %d", len(users))
+        return users

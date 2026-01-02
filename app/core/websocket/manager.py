@@ -28,7 +28,9 @@ class OnlineUser:
     username: str
     full_name: str | None
     role: str
+    status: str = "online"  # online, away, idle
     connected_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    last_activity_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """Преобразует в словарь для JSON."""
@@ -626,3 +628,64 @@ class ConnectionManager:
         """
         message = {"type": "task:deleted", "data": {"id": str(task_id)}}
         await self.broadcast(message)
+
+    # ===== Отслеживание активности =====
+
+    async def update_user_activity(
+        self, user_id: str, status: str = "online"
+    ) -> bool:
+        """
+        Обновляет статус активности пользователя.
+
+        Args:
+            user_id: UUID пользователя
+            status: Новый статус (online, away, idle)
+
+        Returns:
+            bool: True если статус обновлён
+
+        Example:
+            >>> await manager.update_user_activity(user_id, "away")
+        """
+        user_id_str = str(user_id)
+
+        if user_id_str not in self.authenticated_connections:
+            return False
+
+        conn = self.authenticated_connections[user_id_str]
+        old_user = conn.user
+        now = datetime.now(UTC).isoformat()
+
+        # Обновляем только если статус изменился или прошло время
+        if old_user.status != status or old_user.last_activity_at != now:
+            updated_user = OnlineUser(
+                user_id=old_user.user_id,
+                username=old_user.username,
+                full_name=old_user.full_name,
+                role=old_user.role,
+                status=status,
+                connected_at=old_user.connected_at,
+                last_activity_at=now,
+            )
+            self.authenticated_connections[user_id_str] = AuthenticatedConnection(
+                websocket=conn.websocket,
+                user=updated_user,
+            )
+
+            # Уведомляем всех об изменении статуса
+            if old_user.status != status:
+                message = {
+                    "type": "user:status",
+                    "data": updated_user.to_dict(),
+                }
+                await self.broadcast(message)
+                logger.debug(
+                    "🔄 Статус пользователя %s изменён: %s -> %s",
+                    old_user.username,
+                    old_user.status,
+                    status,
+                )
+
+            return True
+
+        return False
