@@ -32,7 +32,7 @@ Query hooks позволяют отслеживать метрики выпол�
 
 **Инициализация:**
 ```python
->>> from src.repository.monitoring import LoggingHook
+>>> from app.repository.monitoring import LoggingHook
 >>>
 >>> hook = LoggingHook(
 ...     slow_query_threshold_ms=100,  # Порог медленного запроса
@@ -66,7 +66,7 @@ ERROR: Query 'update' for ProductModel: 15.2ms, 0 rows ERROR: not found
 
 **Инициализация:**
 ```python
->>> from src.repository.monitoring import DetailedLoggingHook
+>>> from app.repository.monitoring import DetailedLoggingHook
 >>>
 >>> hook = DetailedLoggingHook(
 ...     slow_query_threshold_ms=200,
@@ -96,7 +96,7 @@ INFO: Query 'select' for ProductModel: 15.1ms, 50 rows | Params: {'category_id':
 ### Добавление hooks
 
 ```python
->>> from src.repository.monitoring import LoggingHook, DetailedLoggingHook
+>>> from app.repository.monitoring import LoggingHook, DetailedLoggingHook
 >>>
 >>> # Можно добавить несколько hooks
 >>> repo.add_hook(LoggingHook(slow_query_threshold_ms=100))
@@ -148,7 +148,7 @@ class QueryMetrics:
 ### Базовый пример
 
 ```python
->>> from src.repository.monitoring import QueryHook, QueryMetrics
+>>> from app.repository.monitoring import QueryHook, QueryMetrics
 >>>
 >>> class PrometheusHook(QueryHook):
 ...     """Отправка метрик в Prometheus."""
@@ -176,7 +176,7 @@ class QueryMetrics:
 
 ```python
 >>> import sentry_sdk
->>> from src.repository.monitoring import QueryHook, QueryMetrics
+>>> from app.repository.monitoring import QueryHook, QueryMetrics
 >>>
 >>> class SentryHook(QueryHook):
 ...     """Отправка медленных запросов в Sentry."""
@@ -265,7 +265,7 @@ class QueryMetrics:
 ### Development: детальное логирование
 
 ```python
->>> from src.repository.monitoring import DetailedLoggingHook
+>>> from app.repository.monitoring import DetailedLoggingHook
 >>>
 >>> # Включить детальное логирование для отладки
 >>> repo = ProductRepository(session, ProductModel)

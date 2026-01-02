@@ -191,12 +191,12 @@ image = await image_repo.get_item_by_id(image_id)
 ### 4. Меньше импортов
 ```python
 # Было:
-from src.repository.v1.users import UserRepository
-from src.repository.v1.products import ProductRepository
+from app.repository.v1.users import UserRepository
+from app.repository.v1.products import ProductRepository
 
 # Стало: можно использовать BaseRepository напрямую
-from src.repository.v1.base import BaseRepository
-from src.models.v1.users import UserModel
+from app.repository.v1.base import BaseRepository
+from app.models.v1.users import UserModel
 
 user_repo = BaseRepository(session, UserModel)
 ```

@@ -121,7 +121,7 @@ class BaseRepository(SessionMixin, Generic[M]):
         >>> class ProductRepository(BaseRepository[ProductModel]):
         ...     default_options = [selectinload(ProductModel.categories)]
         >>>
-        >>> from src.repository.cache import RedisCacheBackend
+        >>> from app.repository.cache import RedisCacheBackend
         >>> cache = RedisCacheBackend()
         >>> repo = ProductRepository(
         ...     session,
@@ -156,7 +156,7 @@ class BaseRepository(SessionMixin, Generic[M]):
                 Если True, автоматически добавляется LoggingHook.
 
         Example:
-            >>> from src.repository.cache import RedisCacheBackend
+            >>> from app.repository.cache import RedisCacheBackend
             >>> cache = RedisCacheBackend()
             >>> repo = ProductRepository(session, ProductModel,
             ...                          cache_backend=cache,
@@ -1401,7 +1401,7 @@ class BaseRepository(SessionMixin, Generic[M]):
             Tuple[List[M], int]: Список записей и общее количество.
 
         Example:
-            >>> from src.schemas.v1.pagination import PaginationParamsSchema
+            >>> from app.schemas.v1.pagination import PaginationParamsSchema
             >>> pagination = PaginationParamsSchema(page=1, page_size=20, sort_by="created_at", sort_desc=True)
             >>> items, total = await repo.get_paginated_items(pagination)
         """
@@ -1464,7 +1464,7 @@ class BaseRepository(SessionMixin, Generic[M]):
             hook (QueryHook): Хук для добавления.
 
         Example:
-            >>> from src.repository.monitoring import DetailedLoggingHook
+            >>> from app.repository.monitoring import DetailedLoggingHook
             >>> repo.add_hook(DetailedLoggingHook())
         """
         self.hooks.add(hook)

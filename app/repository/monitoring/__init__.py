@@ -9,7 +9,7 @@
 - DetailedLoggingHook: Расширенный хук с статистикой
 
 Example:
-    >>> from src.repository.monitoring import LoggingHook
+    >>> from app.repository.monitoring import LoggingHook
     >>> hook = LoggingHook(slow_query_threshold_ms=200)
     >>> repo.add_hook(hook)
 """

@@ -5,10 +5,10 @@
 """
 
 from app.core.dependencies.checklist import ChecklistServiceDep
-from app.routers.base import BaseRouter
+from app.routers.base import ProtectedRouter
 
 
-class ChecklistStatisticsRouter(BaseRouter):
+class ChecklistStatisticsRouter(ProtectedRouter):
     """
     Роутер для статистики чек-листа.
 

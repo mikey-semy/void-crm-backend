@@ -16,7 +16,7 @@ Exceptions:
 import logging
 from abc import ABC, abstractmethod
 
-from src.core.exceptions import ServiceUnavailableException
+from app.core.exceptions import ServiceUnavailableException
 
 
 class BaseDependency(ABC):

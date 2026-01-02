@@ -272,7 +272,7 @@ async def project_one(
 
 **Инициализация:**
 ```python
->>> from src.repository.cache import RedisCacheBackend, InMemoryCacheBackend
+>>> from app.repository.cache import RedisCacheBackend, InMemoryCacheBackend
 >>>
 >>> # Production: Redis
 >>> cache = RedisCacheBackend()

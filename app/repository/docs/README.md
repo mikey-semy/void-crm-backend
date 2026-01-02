@@ -30,8 +30,8 @@
 ### 1. Создание репозитория
 
 ```python
-from src.repository.v1.base import BaseRepository
-from src.models.v1 import ProductModel
+from app.repository.v1.base import BaseRepository
+from app.models.v1 import ProductModel
 from sqlalchemy.orm import selectinload
 
 class ProductRepository(BaseRepository[ProductModel]):
@@ -63,7 +63,7 @@ class ProductService:
 ### 3. С кешированием и трассировкой
 
 ```python
-from src.repository.cache import RedisCacheBackend
+from app.repository.cache import RedisCacheBackend
 
 # В dependency
 async def get_product_repo(session: AsyncSession):

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.connections import get_db_session
 from app.core.exceptions.dependencies import ServiceUnavailableException
 
-logger = logging.getLogger("src.dependencies.database")
+logger = logging.getLogger("app.dependencies.database")
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:

@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.schemas.base import BaseRequestSchema
+from app.schemas import BaseRequestSchema
 
 
 class ChecklistCategoryCreateSchema(BaseRequestSchema):

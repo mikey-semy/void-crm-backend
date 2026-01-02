@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(uv add:*)",
+      "Bash(uv pip show:*)",
+      "Bash(uv pip:*)",
+      "Bash(uv sync:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(.venv/Scripts/python:*)"
+    ]
+  }
+}

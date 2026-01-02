@@ -8,7 +8,7 @@
 - NoCacheBackend: Заглушка для отключенного кеша
 
 Example:
-    >>> from src.repository.cache import RedisCacheBackend
+    >>> from app.repository.cache import RedisCacheBackend
     >>> cache = RedisCacheBackend()
     >>> await cache.set("key", "value", ttl=300)
 """

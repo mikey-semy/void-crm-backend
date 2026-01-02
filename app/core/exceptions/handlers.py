@@ -32,7 +32,7 @@ from starlette.status import (
 )
 from starlette.websockets import WebSocketDisconnect
 
-from app.core.exceptions import BaseAPIException
+from .base import BaseAPIException
 
 # Logger для exception handlers
 logger = logging.getLogger(__name__)

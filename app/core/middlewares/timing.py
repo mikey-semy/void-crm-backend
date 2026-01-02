@@ -7,7 +7,7 @@ Middleware для измерения времени выполнения HTTP з
 - Логирует обычные запросы как DEBUG
 
 Использование:
-    from src.core.middlewares.timing import TimingMiddleware
+    from app.core.middlewares.timing import TimingMiddleware
 
     app = FastAPI()
     app.add_middleware(TimingMiddleware, slow_threshold_ms=500.0)

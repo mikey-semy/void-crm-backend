@@ -2,7 +2,7 @@
 Зависимости для работы с кэшем (Redis) в FastAPI.
 
 Предоставляет зависимости для получения клиента Redis
-через src.core.connections.cache.
+через app.core.connections.cache.
 """
 
 import logging
@@ -21,7 +21,7 @@ async def get_redis_dependency() -> Redis:
     """
     Зависимость для получения клиента Redis.
 
-    Использует функцию get_redis_client из src.core.connections.cache
+    Использует функцию get_redis_client из app.core.connections.cache
     для создания подключения к Redis.
 
     Returns:

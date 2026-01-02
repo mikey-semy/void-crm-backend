@@ -7,7 +7,7 @@
 from uuid import UUID
 
 from app.core.dependencies.checklist import ChecklistServiceDep
-from app.routers.base import BaseRouter
+from app.routers.base import ProtectedRouter
 from app.schemas.v1.checklist import (
     ChecklistAllCategoriesWithTasksResponseSchema,
     ChecklistCategoryCreateSchema,
@@ -20,7 +20,7 @@ from app.schemas.v1.checklist import (
 )
 
 
-class ChecklistCategoryRouter(BaseRouter):
+class ChecklistCategoryRouter(ProtectedRouter):
     """
     Роутер для API категорий чек-листа.
 

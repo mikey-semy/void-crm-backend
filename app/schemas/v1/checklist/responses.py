@@ -1,6 +1,6 @@
 """Схемы ответов для чек-листа."""
 
-from app.schemas.base import BaseResponseSchema
+from app.schemas import BaseResponseSchema
 
 from .base import (
     ChecklistCategoryListItemSchema,

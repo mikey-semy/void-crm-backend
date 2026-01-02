@@ -1,6 +1,6 @@
 from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 
-from app.core.exceptions import BaseAPIException
+from .base import BaseAPIException
 
 
 class ServiceUnavailableException(BaseAPIException):

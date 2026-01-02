@@ -13,7 +13,7 @@ Typed Dependencies:
 
 Usage:
     ```python
-    from src.core.dependencies.services import WebhookServiceDep
+    from app.core.dependencies.services import WebhookServiceDep
 
     @router.post("/webhook")
     async def webhook(service: WebhookServiceDep):
@@ -29,7 +29,7 @@ from fastapi import Depends
 from app.core.dependencies.database import AsyncSessionDep
 from app.services.health import HealthService
 
-logger = logging.getLogger("src.dependencies.services")
+logger = logging.getLogger("app.dependencies.services")
 
 
 # Health Service Provider

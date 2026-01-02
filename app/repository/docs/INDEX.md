@@ -18,8 +18,8 @@
 ## 🚀 Быстрый старт
 
 ```python
-from src.repository.v1.base import BaseRepository
-from src.models.v1 import ProductModel
+from app.repository.v1.base import BaseRepository
+from app.models.v1 import ProductModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Создание репозитория

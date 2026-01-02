@@ -4,7 +4,7 @@ from typing import Any
 
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 
-from app.core.exceptions.base import BaseAPIException
+from .base import BaseAPIException
 
 
 class RateLimitExceededError(BaseAPIException):

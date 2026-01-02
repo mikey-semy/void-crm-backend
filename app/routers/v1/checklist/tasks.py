@@ -8,7 +8,7 @@ from uuid import UUID
 
 from app.core.dependencies.checklist import ChecklistServiceDep
 from app.core.dependencies.websocket import WebSocketManagerDep
-from app.routers.base import BaseRouter
+from app.routers.base import ProtectedRouter
 from app.schemas.v1.checklist import (
     ChecklistTaskAssigneeUpdateSchema,
     ChecklistTaskCreateSchema,
@@ -21,7 +21,7 @@ from app.schemas.v1.checklist import (
 )
 
 
-class ChecklistTaskRouter(BaseRouter):
+class ChecklistTaskRouter(ProtectedRouter):
     """
     Роутер для API задач чек-листа.
 
@@ -303,7 +303,7 @@ class ChecklistTaskRouter(BaseRouter):
             return ChecklistTaskListResponseSchema(success=True, message="Задача удалена", data=[])
 
 
-class ChecklistCategoryTaskRouter(BaseRouter):
+class ChecklistCategoryTaskRouter(ProtectedRouter):
     """
     Роутер для получения задач по категории.
 

@@ -2,7 +2,7 @@ from typing import Any
 
 from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 
-from app.core.exceptions.base import BaseAPIException
+from .base import BaseAPIException
 
 
 class ServiceUnavailableError(BaseAPIException):

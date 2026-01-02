@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import PostgresDsn, RedisDsn, SecretStr
+from pydantic import EmailStr, PostgresDsn, RedisDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +54,193 @@ class Settings(BaseSettings):
     # Секретный ключ для сессий и токенов
     TOKEN_SECRET_KEY: SecretStr
 
+    # Настройки аутентификации
+    DEFAULT_USER_ROLE: str = "user"
+
+    # API Key для service-to-service авторизации (внешние админки)
+    ADMIN_API_KEY: SecretStr | None = None
+
+    # Настройки токенов
+    TOKEN_TYPE: str = "Bearer"
+    TOKEN_ALGORITHM: str = "HS256"
+
+    # Пути для куки
+    ACCESS_TOKEN_PATH: str = "/"
+    REFRESH_TOKEN_PATH: str = "/"
+
+    # Время жизни токенов (в минутах/днях)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # Время жизни токена сброса пароля (в минутах)
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # Время жизни токена верификации email (в минутах)
+    VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 часа
+
+    @property
+    def ACCESS_TOKEN_MAX_AGE(self) -> int:
+        """Время жизни access токена в секундах."""
+        return self.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+    @property
+    def REFRESH_TOKEN_MAX_AGE(self) -> int:
+        """Время жизни refresh токена в секундах."""
+        return self.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+    @property
+    def PASSWORD_RESET_TOKEN_TTL(self) -> int:
+        """Время жизни токена сброса пароля в секундах."""
+        return self.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES * 60
+
+    # Настройки паролей
+    PASSWORD_MIN_LENGTH: int = 8
+    PASSWORD_REQUIRE_UPPER: bool = True
+    PASSWORD_REQUIRE_LOWER: bool = True
+    PASSWORD_REQUIRE_DIGIT: bool = True
+    PASSWORD_REQUIRE_SPECIAL: bool = True
+    PASSWORD_FORBID_USERNAME: bool = True
+    PASSWORD_COMMON_SEQUENCES: list[str] = [
+        "12345",
+        "qwerty",
+        "password",
+        "admin",
+        "123456789",
+        "abc123",
+    ]
+
+    # Параметры хеширования Argon2
+    PASSWORD_HASH_SCHEME: str = "argon2"
+    ARGON2_TIME_COST: int = 2
+    ARGON2_MEMORY_COST: int = 102400
+    ARGON2_PARALLELISM: int = 8
+
+    @property
+    def crypt_context_params(self) -> dict[str, Any]:
+        """
+        Параметры для CryptContext из passlib.
+
+        Returns:
+            Dict с настройками для Argon2 хеширования
+        """
+        return {
+            "schemes": [self.PASSWORD_HASH_SCHEME],
+            "deprecated": "auto",
+            "argon2__time_cost": self.ARGON2_TIME_COST,
+            "argon2__memory_cost": self.ARGON2_MEMORY_COST,
+            "argon2__parallelism": self.ARGON2_PARALLELISM,
+        }
+
+    # Настройки куки
+    COOKIE_DOMAIN: str | None = None
+    COOKIE_SECURE: bool = True
+    COOKIE_SAMESITE: str = (
+        "None"  # None для cross-domain cookies (разные домены API и фронтенда)
+    )
+    COOKIE_HTTPONLY: bool = True
+
+    @property
+    def access_token_cookie_params(self) -> dict[str, Any]:
+        """Параметры для access_token куки."""
+        return {
+            "domain": self.COOKIE_DOMAIN,
+            "secure": self.COOKIE_SECURE,
+            "samesite": self.COOKIE_SAMESITE,
+            "httponly": self.COOKIE_HTTPONLY,
+            "path": self.ACCESS_TOKEN_PATH,
+            "max_age": self.ACCESS_TOKEN_MAX_AGE,
+        }
+
+    @property
+    def refresh_token_cookie_params(self) -> dict[str, Any]:
+        """Параметры для refresh_token куки."""
+        return {
+            "domain": self.COOKIE_DOMAIN,
+            "secure": self.COOKIE_SECURE,
+            "samesite": self.COOKIE_SAMESITE,
+            "httponly": self.COOKIE_HTTPONLY,
+            "path": self.REFRESH_TOKEN_PATH,
+            "max_age": self.REFRESH_TOKEN_MAX_AGE,
+        }
+
+    # Настройки методов аутентификации
+    USERNAME_ALLOWED_TYPES: list[str] = ["email", "phone", "username"]
+
+    @field_validator("USERNAME_ALLOWED_TYPES", mode="before")
+    @classmethod
+    def parse_allowed_types(cls, v):
+        """
+        Преобразование строки в список, если передано как строка.
+
+        Args:
+            v: Значение, которое может быть строкой или списком.
+
+        Returns:
+            List[str]: Список разрешённых типов.
+        """
+        if isinstance(v, str):
+            return [t.strip() for t in v.split(",")]
+        return v
+
+    # Дефолтный админ (обязательный)
+    # Создаётся автоматически при первом запуске, если не существует
+    DEFAULT_ADMIN_USERNAME: str = "admin"
+    DEFAULT_ADMIN_EMAIL: EmailStr = "admin@proffitool.ru"
+    DEFAULT_ADMIN_PHONE: str = "+79991234567"
+    DEFAULT_ADMIN_PASSWORD: SecretStr
+
+    # Дополнительные админы (опционально)
+    # Формат: username:email:phone:password,username2:email2:phone2:password2
+    # Пример: ADMINS=mike:mike@example.com:+79001234567:SecurePass123,anna:anna@example.com:+79007654321:AnotherPass456
+    ADMINS: str | None = None
+
+    @property
+    def additional_admins(self) -> list[dict[str, str]]:
+        """
+        Парсинг дополнительных администраторов из ENV.
+
+        Returns:
+            List[Dict]: Список словарей с данными админов:
+                [
+                    {
+                        "username": "mike",
+                        "email": "mike@example.com",
+                        "phone": "+79001234567",
+                        "password": "SecurePass123"
+                    },
+                    ...
+                ]
+        """
+        if not self.ADMINS:
+            return []
+
+        admins = []
+        for admin_str in self.ADMINS.split(","):
+            admin_str = admin_str.strip()
+            if not admin_str:
+                continue
+
+            parts = admin_str.split(":")
+            if len(parts) != 4:
+                self.logging.logger.warning(
+                    "⚠️ Неверный формат администратора: '%s'. Ожидается username:email:phone:password",
+                    admin_str,
+                )
+                continue
+
+            username, email, phone, password = parts
+            admins.append(
+                {
+                    "username": username.strip(),
+                    "email": email.strip(),
+                    "phone": phone.strip(),
+                    "password": password.strip(),
+                }
+            )
+
+        return admins
+
+    # Настройки логирования медленных запросов
     SLOW_THRESHOLD_MS: float = 500.0  # ms
 
     # Настройки CORS

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import Field
 
-from app.schemas.base import BaseSchema, CommonBaseSchema
+from app.schemas import BaseSchema, CommonBaseSchema
 
 
 class ChecklistCategoryBaseSchema(BaseSchema):

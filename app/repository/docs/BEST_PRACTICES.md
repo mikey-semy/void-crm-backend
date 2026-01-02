@@ -187,7 +187,7 @@ while True:
 **✅ Ещё лучше:**
 ```python
 # Используйте встроенную пагинацию
-from src.schemas.v1.pagination import PaginationParams
+from app.schemas.v1.pagination import PaginationParams
 
 pagination = PaginationParams(page=1, page_size=100, sort_by="created_at")
 products, total = await repo.get_paginated_items(pagination)
@@ -284,7 +284,7 @@ class ProductService:
 # В dependencies.py
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.repository.cache import RedisCacheBackend
+from app.repository.cache import RedisCacheBackend
 
 async def get_product_repo(
     session: AsyncSession = Depends(get_session)

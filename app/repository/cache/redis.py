@@ -1,7 +1,7 @@
 """
 Реализация кеша через Redis.
 
-Использует существующий Redis клиент из src.core.connections.cache.
+Использует существующий Redis клиент из app.core.connections.cache.
 Поддерживает сериализацию/десериализацию Python объектов через pickle.
 """
 
@@ -43,7 +43,7 @@ class RedisCacheBackend(CacheBackend):
         """
         Получить Redis клиент (lazy initialization).
 
-        Переиспользует существующее подключение из src.core.connections.cache.
+        Переиспользует существующее подключение из app.core.connections.cache.
 
         Returns:
             Redis: Асинхронный Redis клиент.

@@ -6,11 +6,14 @@ dependencies = [
   "asyncpg>=0.30.0",
   "alembic>=1.13.0",
   "redis>=6.4.0",
-  "pydantic>=2.11.7",
+  "pydantic[email]>=2.11.7",
   "pydantic-settings>=2.0.0",
   "python-dotenv>=1.0.0",
   "pytz>=2025.2",
   "itsdangerous>=2.2.0",
+  "passlib[argon2]>=1.7.4",
+  "python-jose[cryptography]>=3.5.0",
+  "python-multipart>=0.0.21",
 ]
 description = "Backend для внутренней CRM веб-студии VOID"
 name = "void-crm-backend"
@@ -37,16 +40,37 @@ migrate = "scripts.commands:migrate"
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 
+[tool.setuptools]
+packages = ["src", "scripts"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
 [tool.ruff]
+exclude = [
+  "src/core/migrations/versions/*", # Автогенерируемые миграции Alembic
+]
 line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-ignore = ["E501"]
-select = ["E", "F", "I", "N", "W"]
+ignore = [
+  "E501", # line too long
+  "B008", # function calls in argument defaults (FastAPI Depends)
+  "C901", # too complex
+]
+select = [
+  "E", # pycodestyle errors
+  "W", # pycodestyle warnings
+  "F", # pyflakes
+  "I", # isort
+  "B", # flake8-bugbear
+  "C4", # flake8-comprehensions
+  "UP", # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

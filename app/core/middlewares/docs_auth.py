@@ -11,7 +11,7 @@ import time
 
 from fastapi import HTTPException, Request, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from src.core.settings import settings
+from app.core.settings import settings
 from starlette.middleware.base import BaseHTTPMiddleware
 
 security = HTTPBasic(description="Credentials for API documentation access")

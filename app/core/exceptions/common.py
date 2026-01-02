@@ -15,7 +15,7 @@ from starlette.status import (
     HTTP_502_BAD_GATEWAY,
 )
 
-from app.core.exceptions.base import BaseAPIException
+from .base import BaseAPIException
 
 
 class NotFoundError(BaseAPIException):

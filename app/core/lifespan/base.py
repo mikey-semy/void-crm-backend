@@ -231,6 +231,7 @@ async def lifespan(app: FastAPI):
 
 # Импортируем handlers после определения lifespan для регистрации (в конце файла)
 # Порядок импорта важен - определяет порядок выполнения
+from app.core.lifespan.admin_init import initialize_default_admin  # noqa: E402, F401
 from app.core.lifespan.cache import (  # noqa: E402, F401
     close_cache_connection,
     initialize_cache,
