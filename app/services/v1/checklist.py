@@ -17,8 +17,18 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.models.v1 import ChecklistCategoryModel, ChecklistTaskModel
-from app.repository.v1.checklist import ChecklistCategoryRepository, ChecklistTaskRepository
+from app.models.v1 import (
+    ChecklistCategoryModel,
+    ChecklistTaskModel,
+    TaskDecisionFieldModel,
+    TaskDecisionValueModel,
+)
+from app.repository.v1.checklist import (
+    ChecklistCategoryRepository,
+    ChecklistTaskRepository,
+    DecisionFieldRepository,
+    DecisionValueRepository,
+)
 from app.services.base import BaseService
 
 
@@ -390,3 +400,410 @@ class ChecklistService(BaseService):
         stats = await self.task_repository.count_by_status()
         self.logger.debug("Получена статистика: %s", stats)
         return stats
+
+
+class DecisionService(BaseService):
+    """
+    Сервис для управления полями решений задач чек-листа.
+
+    Реализует бизнес-логику работы с полями решений:
+    - CRUD для полей решений
+    - Обновление значений полей
+    - Валидация значений согласно типу поля
+    - Получение сводки решений по категориям
+
+    Attributes:
+        field_repository: Репозиторий для работы с полями решений
+        value_repository: Репозиторий для работы со значениями
+        category_repository: Репозиторий для категорий (для сводки)
+        logger: Логгер для отслеживания операций
+
+    Example:
+        >>> async with AsyncSession() as session:
+        ...     service = DecisionService(session)
+        ...     fields = await service.get_fields_by_task(task_id)
+        ...     await service.update_value(field_id, 3000, "both")
+    """
+
+    def __init__(self, session: AsyncSession):
+        """
+        Инициализирует DecisionService.
+
+        Args:
+            session: Асинхронная сессия SQLAlchemy для работы с БД
+        """
+        super().__init__(session)
+        self.field_repository = DecisionFieldRepository(session)
+        self.value_repository = DecisionValueRepository(session)
+        self.category_repository = ChecklistCategoryRepository(session)
+
+    # ==================== ПОЛЯ РЕШЕНИЙ ====================
+
+    async def get_fields_by_task(self, task_id: UUID) -> list[TaskDecisionFieldModel]:
+        """
+        Получает все поля решений задачи с их значениями.
+
+        Args:
+            task_id: UUID задачи
+
+        Returns:
+            list[TaskDecisionFieldModel]: Список полей с загруженными значениями
+        """
+        fields = await self.field_repository.get_fields_by_task(task_id)
+        self.logger.debug("Получено %d полей решений для задачи %s", len(fields), task_id)
+        return fields
+
+    async def create_field(self, task_id: UUID, data: dict) -> TaskDecisionFieldModel:
+        """
+        Создает новое поле решения для задачи.
+
+        Args:
+            task_id: UUID задачи
+            data: Словарь с данными поля:
+                - field_key (str): Уникальный ключ (snake_case)
+                - field_type (str): Тип поля
+                - label (str): Метка поля
+                - description (str, optional): Подсказка
+                - options (list, optional): Опции для select
+                - is_required (bool, optional): Обязательное поле
+                - order (int, optional): Порядок
+
+        Returns:
+            TaskDecisionFieldModel: Созданное поле
+
+        Raises:
+            ValidationError: Если поле с таким field_key уже существует
+        """
+        # Проверка уникальности field_key в рамках задачи
+        existing = await self.field_repository.get_by_task_and_key(
+            task_id, data["field_key"]
+        )
+        if existing:
+            self.logger.error(
+                "Поле с ключом %s уже существует для задачи %s",
+                data["field_key"],
+                task_id,
+            )
+            raise ValidationError(
+                field="field_key",
+                message=f"Поле с ключом '{data['field_key']}' уже существует",
+            )
+
+        data["task_id"] = task_id
+        field = await self.field_repository.create_item(data)
+        self.logger.info(
+            "Создано поле решения: %s (id=%s, task=%s)",
+            field.field_key,
+            field.id,
+            task_id,
+        )
+        return field
+
+    async def update_field(self, field_id: UUID, data: dict) -> TaskDecisionFieldModel:
+        """
+        Обновляет поле решения.
+
+        Args:
+            field_id: UUID поля
+            data: Словарь с обновляемыми полями
+
+        Returns:
+            TaskDecisionFieldModel: Обновлённое поле
+
+        Raises:
+            NotFoundError: Если поле не найдено
+        """
+        field = await self.field_repository.update_item(field_id, data)
+        if not field:
+            self.logger.error("Поле решения не найдено: %s", field_id)
+            raise NotFoundError(
+                detail="Поле решения не найдено",
+                field="field_id",
+                value=str(field_id),
+            )
+
+        self.logger.info("Обновлено поле решения: %s", field_id)
+        return field
+
+    async def delete_field(self, field_id: UUID) -> bool:
+        """
+        Удаляет поле решения (и его значение каскадно).
+
+        Args:
+            field_id: UUID поля
+
+        Returns:
+            bool: True если удалено
+
+        Raises:
+            NotFoundError: Если поле не найдено
+        """
+        result = await self.field_repository.delete_item(field_id)
+        if not result:
+            self.logger.error("Поле решения для удаления не найдено: %s", field_id)
+            raise NotFoundError(
+                detail="Поле решения не найдено",
+                field="field_id",
+                value=str(field_id),
+            )
+
+        self.logger.info("Удалено поле решения: %s", field_id)
+        return result
+
+    # ==================== ЗНАЧЕНИЯ РЕШЕНИЙ ====================
+
+    async def update_value(
+        self,
+        field_id: UUID,
+        value: any,
+        filled_by: str | None = None,
+    ) -> TaskDecisionFieldModel:
+        """
+        Обновляет значение поля решения.
+
+        Валидирует значение согласно типу поля и правилам валидации.
+        Создаёт или обновляет запись в task_decision_values.
+
+        Args:
+            field_id: UUID поля решения
+            value: Значение для сохранения
+            filled_by: Кто заполнил (partner1, partner2, both)
+
+        Returns:
+            TaskDecisionFieldModel: Поле с обновлённым значением
+
+        Raises:
+            NotFoundError: Если поле не найдено
+            ValidationError: Если значение не валидно
+        """
+        # Получаем поле с текущим значением
+        field = await self.field_repository.get_field_with_value(field_id)
+        if not field:
+            self.logger.error("Поле решения не найдено: %s", field_id)
+            raise NotFoundError(
+                detail="Поле решения не найдено",
+                field="field_id",
+                value=str(field_id),
+            )
+
+        # Валидация значения
+        self._validate_value(field, value)
+
+        # Upsert значения
+        await self.value_repository.upsert_value(field_id, value, filled_by)
+
+        # Возвращаем обновлённое поле
+        updated_field = await self.field_repository.get_field_with_value(field_id)
+        self.logger.info("Обновлено значение поля %s: %s", field.field_key, value)
+        return updated_field
+
+    async def bulk_update_values(
+        self,
+        task_id: UUID,
+        values: list[dict],
+    ) -> list[TaskDecisionFieldModel]:
+        """
+        Массовое обновление значений решений.
+
+        Args:
+            task_id: UUID задачи
+            values: Список [{field_id, value, filled_by}, ...]
+
+        Returns:
+            list[TaskDecisionFieldModel]: Обновлённые поля
+        """
+        for item in values:
+            await self.update_value(
+                item["field_id"],
+                item["value"],
+                item.get("filled_by"),
+            )
+
+        self.logger.info("Массово обновлено %d значений для задачи %s", len(values), task_id)
+        return await self.get_fields_by_task(task_id)
+
+    def _validate_value(self, field: TaskDecisionFieldModel, value: any) -> None:
+        """
+        Валидация значения согласно типу и правилам поля.
+
+        Args:
+            field: Поле решения
+            value: Значение для валидации
+
+        Raises:
+            ValidationError: Если значение не валидно
+        """
+        if value is None:
+            if field.is_required:
+                raise ValidationError(
+                    field=field.field_key,
+                    message="Обязательное поле",
+                )
+            return
+
+        field_type = field.field_type
+        rules = field.validation_rules or {}
+
+        if field_type == "text":
+            if not isinstance(value, str):
+                raise ValidationError(
+                    field=field.field_key,
+                    message="Ожидается строка",
+                )
+            if rules.get("min_length") and len(value) < rules["min_length"]:
+                raise ValidationError(
+                    field=field.field_key,
+                    message=f"Минимум {rules['min_length']} символов",
+                )
+            if rules.get("max_length") and len(value) > rules["max_length"]:
+                raise ValidationError(
+                    field=field.field_key,
+                    message=f"Максимум {rules['max_length']} символов",
+                )
+
+        elif field_type == "number":
+            if not isinstance(value, (int, float)):
+                raise ValidationError(
+                    field=field.field_key,
+                    message="Ожидается число",
+                )
+            if rules.get("min") is not None and value < rules["min"]:
+                raise ValidationError(
+                    field=field.field_key,
+                    message=f"Минимум {rules['min']}",
+                )
+            if rules.get("max") is not None and value > rules["max"]:
+                raise ValidationError(
+                    field=field.field_key,
+                    message=f"Максимум {rules['max']}",
+                )
+
+        elif field_type == "select":
+            valid_values = [opt["value"] for opt in (field.options or [])]
+            if value not in valid_values:
+                raise ValidationError(
+                    field=field.field_key,
+                    message=f"Значение должно быть одним из: {', '.join(valid_values)}",
+                )
+
+        elif field_type == "boolean":
+            if not isinstance(value, bool):
+                raise ValidationError(
+                    field=field.field_key,
+                    message="Ожидается boolean",
+                )
+
+    # ==================== СВОДКА РЕШЕНИЙ ====================
+
+    async def get_decisions_summary(self, include_empty: bool = False) -> dict:
+        """
+        Получить сводку всех решений по категориям.
+
+        Args:
+            include_empty: Включать задачи без заполненных полей
+
+        Returns:
+            dict: Сводка решений с прогрессом
+        """
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        # Загружаем все категории с задачами и полями решений
+        stmt = (
+            select(ChecklistCategoryModel)
+            .options(
+                selectinload(ChecklistCategoryModel.tasks)
+                .selectinload(ChecklistTaskModel.decision_fields)
+                .selectinload(TaskDecisionFieldModel.value)
+            )
+            .order_by(ChecklistCategoryModel.order)
+        )
+
+        result = await self.session.execute(stmt)
+        categories = list(result.scalars().all())
+
+        summary = {
+            "categories": [],
+            "total_filled": 0,
+            "total_fields": 0,
+            "overall_progress": 0.0,
+        }
+
+        for category in categories:
+            category_data = {
+                "category_id": category.id,
+                "category_title": category.title,
+                "category_icon": category.icon,
+                "category_color": category.color,
+                "tasks": [],
+                "filled_count": 0,
+                "total_count": 0,
+                "progress_percentage": 0.0,
+            }
+
+            for task in category.tasks:
+                if not task.decision_fields:
+                    continue  # Пропускаем задачи без полей решений
+
+                filled = sum(1 for f in task.decision_fields if f.value is not None)
+                total = len(task.decision_fields)
+
+                # Пропускаем пустые, если не запрошено include_empty
+                if not include_empty and filled == 0:
+                    continue
+
+                task_data = {
+                    "task_id": task.id,
+                    "task_title": task.title,
+                    "task_status": task.status,
+                    "fields": [self._field_to_dict(f) for f in task.decision_fields],
+                    "filled_count": filled,
+                    "total_count": total,
+                    "is_complete": task.decision_fields_required_filled,
+                }
+
+                category_data["tasks"].append(task_data)
+                category_data["filled_count"] += filled
+                category_data["total_count"] += total
+
+            # Пропускаем пустые категории
+            if not category_data["tasks"]:
+                continue
+
+            if category_data["total_count"] > 0:
+                category_data["progress_percentage"] = round(
+                    (category_data["filled_count"] / category_data["total_count"]) * 100, 2
+                )
+
+            summary["categories"].append(category_data)
+            summary["total_filled"] += category_data["filled_count"]
+            summary["total_fields"] += category_data["total_count"]
+
+        if summary["total_fields"] > 0:
+            summary["overall_progress"] = round(
+                (summary["total_filled"] / summary["total_fields"]) * 100, 2
+            )
+
+        self.logger.debug(
+            "Получена сводка решений: %d категорий, прогресс %.1f%%",
+            len(summary["categories"]),
+            summary["overall_progress"],
+        )
+        return summary
+
+    def _field_to_dict(self, field: TaskDecisionFieldModel) -> dict:
+        """Конвертация поля в словарь для ответа."""
+        return {
+            "id": field.id,
+            "task_id": field.task_id,
+            "field_key": field.field_key,
+            "field_type": field.field_type,
+            "label": field.label,
+            "description": field.description,
+            "options": field.options,
+            "is_required": field.is_required,
+            "order": field.order,
+            "value": field.value.value if field.value else None,
+            "filled_by": field.value.filled_by if field.value else None,
+            "filled_at": field.value.filled_at if field.value else None,
+        }

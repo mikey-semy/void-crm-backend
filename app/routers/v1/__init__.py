@@ -10,6 +10,8 @@ from app.routers.v1.checklist import (
     ChecklistStatisticsRouter,
     ChecklistTaskRouter,
     ChecklistWebSocketRouter,
+    DecisionFieldRouter,
+    PartnershipDecisionsRouter,
 )
 
 
@@ -36,6 +38,9 @@ class APIv1(BaseRouter):
         self.router.include_router(ChecklistCategoryTaskRouter().get_router())
         self.router.include_router(ChecklistStatisticsRouter().get_router())
         self.router.include_router(ChecklistWebSocketRouter().get_router())
+        # Decision роутеры
+        self.router.include_router(DecisionFieldRouter().get_router())
+        self.router.include_router(PartnershipDecisionsRouter().get_router())
 
 
 __all__ = ["APIv1"]

@@ -148,3 +148,32 @@ class BaseRedisManager:
             None
         """
         await self.redis.expire(key, seconds)
+
+    async def scan(
+        self, cursor: int = 0, match: str | None = None, count: int = 100
+    ) -> tuple[int, list[bytes]]:
+        """
+        Итеративно сканирует ключи Redis без блокировки.
+
+        В отличие от KEYS, SCAN не блокирует Redis и безопасен для production.
+        Возвращает курсор для продолжения итерации и список найденных ключей.
+
+        Args:
+            cursor: Позиция курсора (0 для начала сканирования)
+            match: Паттерн для фильтрации ключей (например, "token:*")
+            count: Примерное количество ключей за итерацию
+
+        Returns:
+            tuple[int, list[bytes]]: (новый_курсор, список_ключей)
+                - Когда курсор = 0, сканирование завершено
+
+        Example:
+            >>> cursor = 0
+            >>> while True:
+            ...     cursor, keys = await redis.scan(cursor, match="token:*")
+            ...     for key in keys:
+            ...         print(key)
+            ...     if cursor == 0:
+            ...         break
+        """
+        return await self.redis.scan(cursor=cursor, match=match, count=count)

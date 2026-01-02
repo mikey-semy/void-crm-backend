@@ -25,6 +25,26 @@ from .responses import (
     ChecklistTaskListResponseSchema,
     ChecklistTaskResponseSchema,
 )
+from .decisions import (
+    AssigneeType,
+    BulkDecisionValueItem,
+    BulkDecisionValuesUpdateSchema,
+    CategoryDecisionSummarySchema,
+    DecisionFieldBaseSchema,
+    DecisionFieldCreateSchema,
+    DecisionFieldListItemSchema,
+    DecisionFieldListResponseSchema,
+    DecisionFieldResponseSchema,
+    DecisionFieldSchema,
+    DecisionFieldType,
+    DecisionFieldUpdateSchema,
+    DecisionValueUpdateSchema,
+    PartnershipDecisionsResponseSchema,
+    PartnershipDecisionsSummarySchema,
+    SelectOptionSchema,
+    TaskDecisionSummarySchema,
+    ValidationRulesSchema,
+)
 
 __all__ = [
     # Base schemas
@@ -49,4 +69,23 @@ __all__ = [
     "ChecklistTaskResponseSchema",
     "ChecklistTaskListResponseSchema",
     "ChecklistTaskDeleteResponseSchema",
+    # Decision schemas
+    "AssigneeType",
+    "BulkDecisionValueItem",
+    "BulkDecisionValuesUpdateSchema",
+    "CategoryDecisionSummarySchema",
+    "DecisionFieldBaseSchema",
+    "DecisionFieldCreateSchema",
+    "DecisionFieldListItemSchema",
+    "DecisionFieldListResponseSchema",
+    "DecisionFieldResponseSchema",
+    "DecisionFieldSchema",
+    "DecisionFieldType",
+    "DecisionFieldUpdateSchema",
+    "DecisionValueUpdateSchema",
+    "PartnershipDecisionsResponseSchema",
+    "PartnershipDecisionsSummarySchema",
+    "SelectOptionSchema",
+    "TaskDecisionSummarySchema",
+    "ValidationRulesSchema",
 ]

@@ -14,7 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.v1 import ChecklistCategoryModel, ChecklistTaskModel
+from app.models.v1 import (
+    ChecklistCategoryModel,
+    ChecklistTaskModel,
+    TaskDecisionFieldModel,
+    TaskDecisionValueModel,
+)
 from app.repository.base import BaseRepository
 from app.repository.cache import CacheBackend
 
@@ -293,3 +298,163 @@ class ChecklistTaskRepository(BaseRepository[ChecklistTaskModel]):
         for status in statuses:
             result[status] = await self.count_items(status=status)
         return result
+
+
+class DecisionFieldRepository(BaseRepository[TaskDecisionFieldModel]):
+    """Репозиторий для операций с полями решений задач.
+
+    Предоставляет методы для работы с полями решений:
+    - get_fields_by_task() - получение всех полей задачи с их значениями
+    - get_by_task_and_key() - поиск поля по task_id и field_key
+    """
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        cache_backend: CacheBackend | None = None,
+        enable_tracing: bool = False,
+    ):
+        """Инициализация репозитория полей решений.
+
+        Args:
+            session: Асинхронная SQLAlchemy сессия для операций с БД.
+            cache_backend: Бэкенд для кеширования.
+            enable_tracing: Включить трассировку запросов.
+        """
+        super().__init__(session, TaskDecisionFieldModel, cache_backend, enable_tracing)
+
+    async def get_fields_by_task(self, task_id: UUID) -> list[TaskDecisionFieldModel]:
+        """Получить все поля решений задачи с их значениями.
+
+        Args:
+            task_id: UUID задачи.
+
+        Returns:
+            Список полей решений с загруженными значениями.
+        """
+        stmt = (
+            select(TaskDecisionFieldModel)
+            .where(TaskDecisionFieldModel.task_id == task_id)
+            .options(selectinload(TaskDecisionFieldModel.value))
+            .order_by(TaskDecisionFieldModel.order)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_by_task_and_key(
+        self, task_id: UUID, field_key: str
+    ) -> TaskDecisionFieldModel | None:
+        """Найти поле по task_id и field_key.
+
+        Args:
+            task_id: UUID задачи.
+            field_key: Уникальный ключ поля.
+
+        Returns:
+            TaskDecisionFieldModel или None если не найдено.
+        """
+        stmt = select(TaskDecisionFieldModel).where(
+            TaskDecisionFieldModel.task_id == task_id,
+            TaskDecisionFieldModel.field_key == field_key,
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_field_with_value(self, field_id: UUID) -> TaskDecisionFieldModel | None:
+        """Получить поле с его значением.
+
+        Args:
+            field_id: UUID поля.
+
+        Returns:
+            TaskDecisionFieldModel с загруженным value или None.
+        """
+        stmt = (
+            select(TaskDecisionFieldModel)
+            .where(TaskDecisionFieldModel.id == field_id)
+            .options(selectinload(TaskDecisionFieldModel.value))
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+class DecisionValueRepository(BaseRepository[TaskDecisionValueModel]):
+    """Репозиторий для операций со значениями решений.
+
+    Предоставляет методы для работы со значениями полей решений.
+    """
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        cache_backend: CacheBackend | None = None,
+        enable_tracing: bool = False,
+    ):
+        """Инициализация репозитория значений решений.
+
+        Args:
+            session: Асинхронная SQLAlchemy сессия для операций с БД.
+            cache_backend: Бэкенд для кеширования.
+            enable_tracing: Включить трассировку запросов.
+        """
+        super().__init__(session, TaskDecisionValueModel, cache_backend, enable_tracing)
+
+    async def get_by_field_id(self, field_id: UUID) -> TaskDecisionValueModel | None:
+        """Получить значение по field_id.
+
+        Args:
+            field_id: UUID поля решения.
+
+        Returns:
+            TaskDecisionValueModel или None если не найдено.
+        """
+        stmt = select(TaskDecisionValueModel).where(
+            TaskDecisionValueModel.field_id == field_id
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def upsert_value(
+        self,
+        field_id: UUID,
+        value: Any,
+        filled_by: str | None = None,
+    ) -> TaskDecisionValueModel:
+        """Создать или обновить значение поля решения.
+
+        Args:
+            field_id: UUID поля решения.
+            value: Значение для сохранения.
+            filled_by: Кто заполнил (partner1, partner2, both).
+
+        Returns:
+            TaskDecisionValueModel: Созданное или обновлённое значение.
+        """
+        from datetime import UTC, datetime
+
+        existing = await self.get_by_field_id(field_id)
+
+        if existing:
+            # Обновляем существующее
+            return await self.update_item(
+                existing.id,
+                {
+                    "value": value,
+                    "filled_by": filled_by,
+                    "filled_at": datetime.now(UTC),
+                },
+            )
+        else:
+            # Создаём новое
+            return await self.create_item(
+                {
+                    "field_id": field_id,
+                    "value": value,
+                    "filled_by": filled_by,
+                    "filled_at": datetime.now(UTC),
+                }
+            )

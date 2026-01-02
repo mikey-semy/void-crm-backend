@@ -1,22 +1,35 @@
 """
 Модели для чек-листа партнёрства.
 
-Содержит модели для категорий и задач чек-листа формализации партнёрства
-веб-студии. Поддерживает отслеживание статусов, заметок, назначение исполнителей
-и приоритезацию задач.
+Содержит модели для категорий, задач и полей решений чек-листа формализации
+партнёрства веб-студии. Поддерживает отслеживание статусов, заметок, назначение
+исполнителей, приоритезацию задач и структурированные решения.
 """
 
-from datetime import datetime
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime
+from enum import Enum as PyEnum
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
     pass
+
+
+class DecisionFieldType(str, PyEnum):
+    """Типы полей решений."""
+
+    TEXT = "text"
+    NUMBER = "number"
+    SELECT = "select"
+    BOOLEAN = "boolean"
+    DATE = "date"
+    TIME = "time"
 
 
 class ChecklistCategoryModel(BaseModel):
@@ -282,6 +295,230 @@ class ChecklistTaskModel(BaseModel):
         self.status = "pending"
         self.completed_at = None
 
+    # Связь с полями решений
+    decision_fields: Mapped[list["TaskDecisionFieldModel"]] = relationship(
+        "TaskDecisionFieldModel",
+        back_populates="task",
+        cascade="all, delete-orphan",
+        order_by="TaskDecisionFieldModel.order",
+    )
+
+    @property
+    def has_decision_fields(self) -> bool:
+        """Проверяет, есть ли поля решений у задачи."""
+        return len(self.decision_fields) > 0
+
+    @property
+    def decision_fields_count(self) -> int:
+        """Возвращает количество полей решений."""
+        return len(self.decision_fields)
+
+    @property
+    def decision_fields_filled(self) -> int:
+        """Возвращает количество заполненных полей решений."""
+        return sum(1 for field in self.decision_fields if field.value is not None)
+
+    @property
+    def decision_fields_required_filled(self) -> bool:
+        """Проверяет, заполнены ли все обязательные поля решений."""
+        for field in self.decision_fields:
+            if field.is_required and field.value is None:
+                return False
+        return True
+
     def __repr__(self) -> str:
         """Строковое представление модели для отладки."""
         return f"<ChecklistTaskModel(title={self.title[:30]}..., status={self.status})>"
+
+
+class TaskDecisionFieldModel(BaseModel):
+    """
+    Модель поля решения задачи.
+
+    Определяет схему одного поля, которое нужно заполнить для принятия решения.
+    Каждая задача может иметь несколько полей решений с разными типами данных.
+
+    Attributes:
+        task_id (UUID): ID задачи, к которой относится поле.
+        field_key (str): Уникальный ключ поля (snake_case, например: hourly_rate).
+        field_type (str): Тип поля (text, number, select, boolean, date, time).
+        label (str): Человекочитаемая метка поля (например: "Часовая ставка").
+        description (str | None): Подсказка для заполнения поля.
+        options (dict | None): JSON-массив опций для select-поля.
+        is_required (bool): Обязательно ли поле для завершения задачи.
+        order (int): Порядок отображения поля в форме.
+        validation_rules (dict | None): JSON с правилами валидации {min, max, pattern}.
+
+    Relationships:
+        task: Many-to-One связь с ChecklistTaskModel.
+        value: One-to-One связь с TaskDecisionValueModel.
+
+    Example:
+        >>> field = TaskDecisionFieldModel(
+        ...     task_id=task.id,
+        ...     field_key="hourly_rate",
+        ...     field_type="number",
+        ...     label="Часовая ставка (₽)",
+        ...     is_required=True,
+        ...     validation_rules={"min": 0, "max": 100000}
+        ... )
+    """
+
+    __tablename__ = "task_decision_fields"
+
+    task_id: Mapped[UUID] = mapped_column(
+        ForeignKey("checklist_tasks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="ID задачи",
+    )
+
+    field_key: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="Уникальный ключ поля (snake_case)",
+    )
+
+    field_type: Mapped[str] = mapped_column(
+        Enum(
+            "text",
+            "number",
+            "select",
+            "boolean",
+            "date",
+            "time",
+            name="decision_field_type_enum",
+        ),
+        nullable=False,
+        comment="Тип поля",
+    )
+
+    label: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        comment="Человекочитаемая метка поля",
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Подсказка для заполнения",
+    )
+
+    options: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Опции для select [{value, label}]",
+    )
+
+    is_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Обязательное поле",
+    )
+
+    order: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Порядок отображения",
+    )
+
+    validation_rules: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Правила валидации {min, max, pattern}",
+    )
+
+    # Связи
+    task: Mapped["ChecklistTaskModel"] = relationship(
+        "ChecklistTaskModel",
+        back_populates="decision_fields",
+    )
+
+    value: Mapped["TaskDecisionValueModel | None"] = relationship(
+        "TaskDecisionValueModel",
+        back_populates="field",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("task_id", "field_key", name="uq_task_decision_field_key"),
+    )
+
+    def __repr__(self) -> str:
+        """Строковое представление модели для отладки."""
+        return f"<TaskDecisionFieldModel(key={self.field_key}, type={self.field_type})>"
+
+
+class TaskDecisionValueModel(BaseModel):
+    """
+    Модель значения решения.
+
+    Хранит заполненное значение для конкретного поля решения.
+    Использует JSONB для универсального хранения значений разных типов.
+
+    Attributes:
+        field_id (UUID): ID поля решения.
+        value (Any): JSON-значение (универсальное хранение для всех типов).
+        filled_by (str | None): Кто заполнил (partner1, partner2, both).
+        filled_at (datetime): Когда было заполнено.
+
+    Relationships:
+        field: One-to-One связь с TaskDecisionFieldModel.
+
+    Example:
+        >>> value = TaskDecisionValueModel(
+        ...     field_id=field.id,
+        ...     value=3000,
+        ...     filled_by="both"
+        ... )
+    """
+
+    __tablename__ = "task_decision_values"
+
+    field_id: Mapped[UUID] = mapped_column(
+        ForeignKey("task_decision_fields.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="ID поля решения",
+    )
+
+    value: Mapped[Any] = mapped_column(
+        JSONB,
+        nullable=False,
+        comment="Значение поля (универсальное хранение)",
+    )
+
+    filled_by: Mapped[str | None] = mapped_column(
+        Enum(
+            "partner1",
+            "partner2",
+            "both",
+            name="task_assignee_enum",
+            create_type=False,
+        ),
+        nullable=True,
+        comment="Кто заполнил",
+    )
+
+    filled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        comment="Когда заполнено",
+    )
+
+    # Связи
+    field: Mapped["TaskDecisionFieldModel"] = relationship(
+        "TaskDecisionFieldModel",
+        back_populates="value",
+    )
+
+    def __repr__(self) -> str:
+        """Строковое представление модели для отладки."""
+        return f"<TaskDecisionValueModel(field_id={self.field_id}, value={self.value})>"

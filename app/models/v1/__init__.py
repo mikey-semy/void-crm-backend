@@ -2,7 +2,13 @@
 
 from .users import UserModel
 from .roles import RoleCode, UserRoleModel
-from .checklist import ChecklistCategoryModel, ChecklistTaskModel
+from .checklist import (
+    ChecklistCategoryModel,
+    ChecklistTaskModel,
+    DecisionFieldType,
+    TaskDecisionFieldModel,
+    TaskDecisionValueModel,
+)
 
 __all__ = [
     "UserModel",
@@ -10,4 +16,7 @@ __all__ = [
     "UserRoleModel",
     "ChecklistCategoryModel",
     "ChecklistTaskModel",
-    ]
+    "DecisionFieldType",
+    "TaskDecisionFieldModel",
+    "TaskDecisionValueModel",
+]

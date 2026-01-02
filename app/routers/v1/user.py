@@ -11,19 +11,23 @@
 app.core.exceptions.users через глобальный exception handler.
 """
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import status
 
-from app.core.dependencies import UserServiceDep
+from app.core.dependencies import AuthServiceDep, UserServiceDep
 from app.core.dependencies.websocket import WebSocketManagerDep
 from app.core.security import CurrentUserDep
 from app.routers.base import ProtectedRouter
 from app.schemas import (
+    PasswordChangedSchema,
     ProfileResponseSchema,
     UserDeletedSchema,
     UserDeleteResponseSchema,
     UserDetailSchema,
+    UserPasswordChangedResponseSchema,
+    UserPasswordChangeSchema,
     UserPublicProfileResponseSchema,
     UserPublicProfileSchema,
     UserUpdateSchema,
@@ -185,6 +189,64 @@ class UserRouter(ProtectedRouter):
                 success=True,
                 message="Профиль обновлен",
                 data=schema,
+            )
+
+        @self.router.post(
+            path="/me/password",
+            response_model=UserPasswordChangedResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 🔐 Сменить пароль текущего пользователя
+
+Позволяет пользователю сменить свой пароль.
+
+### Требования:
+- JWT токен в заголовке Authorization
+- Текущий пароль для подтверждения
+- Новый пароль (минимум 8 символов)
+
+### Returns:
+- Подтверждение смены пароля
+
+### Errors:
+- **401** — токен отсутствует или невалиден
+- **400** — текущий пароль неверен
+- **400** — новый пароль слишком слабый
+""",
+        )
+        async def change_password(
+            password_data: UserPasswordChangeSchema,
+            auth_service: AuthServiceDep = None,
+            current_user: CurrentUserDep = None,
+        ) -> UserPasswordChangedResponseSchema:
+            """
+            Сменяет пароль текущего пользователя.
+
+            Args:
+                password_data: Данные для смены пароля
+                auth_service: Сервис аутентификации (dependency injection)
+                current_user: Текущий аутентифицированный пользователь
+
+            Returns:
+                UserPasswordChangedResponseSchema: Подтверждение смены пароля
+
+            Raises:
+                InvalidCurrentPasswordError: Если текущий пароль неверен
+                WeakPasswordError: Если новый пароль не соответствует требованиям
+            """
+            await auth_service.change_password(
+                user_id=current_user.id,
+                old_password=password_data.old_password,
+                new_password=password_data.new_password,
+            )
+
+            return UserPasswordChangedResponseSchema(
+                success=True,
+                message="Пароль успешно изменён",
+                data=PasswordChangedSchema(
+                    user_id=current_user.id,
+                    changed_at=datetime.now(UTC),
+                ),
             )
 
         @self.router.delete(
