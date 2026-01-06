@@ -286,6 +286,38 @@ get_current_user = AuthenticationManager.get_current_user
 # Type annotation для dependency injection
 CurrentUserDep = Annotated[UserCurrentSchema, Depends(get_current_user)]
 
+
+async def get_optional_current_user(
+    request: Request,
+    token: str = Depends(OAuth2PasswordBearer(tokenUrl="api/v1/auth/token", auto_error=False)),
+) -> UserCurrentSchema | None:
+    """
+    Опциональная зависимость для получения текущего пользователя.
+
+    Не выбрасывает ошибку если токен отсутствует или невалидный.
+    Используется для эндпоинтов где авторизация не обязательна,
+    но если пользователь авторизован, мы хотим знать кто это.
+
+    Args:
+        request: Запрос FastAPI
+        token: Токен из заголовка Authorization (может быть None)
+
+    Returns:
+        UserCurrentSchema | None: Пользователь или None
+    """
+    if not token:
+        return None
+
+    try:
+        return await AuthenticationManager.get_current_user(request, token)
+    except Exception:
+        # Любая ошибка авторизации - просто возвращаем None
+        return None
+
+
+# Опциональная зависимость - не требует авторизации
+OptionalCurrentUserDep = Annotated[UserCurrentSchema | None, Depends(get_optional_current_user)]
+
 # Dependency для роутов с поддержкой API Key
 CurrentUserOrApiKeyDep = Annotated[
     UserCurrentSchema | None, Depends(get_current_user_or_api_key)

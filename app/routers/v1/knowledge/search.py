@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import Query
 
 from app.core.dependencies.knowledge import KnowledgeServiceDep
+from app.core.security import OptionalCurrentUserDep
 from app.routers.base import BaseRouter
 from app.schemas import PaginatedDataSchema, PaginationMetaSchema, PaginationParamsSchema
 from app.schemas.v1.knowledge import (
@@ -65,6 +66,7 @@ def _article_to_list_schema(article) -> KnowledgeArticleListItemSchema:
         view_count=article.view_count,
         published_at=article.published_at,
         created_at=article.created_at,
+        updated_at=article.updated_at,
     )
 
 
@@ -113,6 +115,7 @@ GET /api/v1/knowledge/search?q=typescript&category_id=<uuid>&tags=frontend,best-
         )
         async def search_articles(
             service: KnowledgeServiceDep,
+            current_user: OptionalCurrentUserDep,
             q: str = Query(..., min_length=2, max_length=200, description="Поисковый запрос"),
             page: int = Query(1, ge=1, description="Номер страницы"),
             page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
@@ -129,11 +132,15 @@ GET /api/v1/knowledge/search?q=typescript&category_id=<uuid>&tags=frontend,best-
 
             tag_slugs = tags.split(",") if tags else None
 
+            # Если пользователь авторизован, показываем ему также его черновики
+            current_user_id = current_user.id if current_user else None
+
             articles, total = await service.search_articles(
                 query=q,
                 pagination=pagination,
                 category_id=category_id,
                 tag_slugs=tag_slugs,
+                current_user_id=current_user_id,
             )
 
             schemas = [_article_to_list_schema(article) for article in articles]

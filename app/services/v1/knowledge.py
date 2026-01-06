@@ -109,6 +109,7 @@ class KnowledgeService(BaseService):
         self,
         slug: str,
         published_only: bool = True,
+        current_user_id: UUID | None = None,
     ) -> KnowledgeArticleModel:
         """
         Получает статью по slug.
@@ -116,6 +117,7 @@ class KnowledgeService(BaseService):
         Args:
             slug: URL-friendly идентификатор
             published_only: Только опубликованные статьи
+            current_user_id: ID текущего пользователя для просмотра своих черновиков
 
         Returns:
             KnowledgeArticleModel: Статья с категорией, тегами и автором
@@ -123,7 +125,9 @@ class KnowledgeService(BaseService):
         Raises:
             NotFoundError: Если статья не найдена
         """
-        article = await self.article_repository.get_by_slug(slug, published_only)
+        article = await self.article_repository.get_by_slug(
+            slug, published_only, current_user_id
+        )
         if not article:
             self.logger.error("Статья не найдена: %s", slug)
             raise NotFoundError(detail="Статья не найдена", field="slug", value=slug)
@@ -195,15 +199,19 @@ class KnowledgeService(BaseService):
         pagination: "PaginationParamsSchema",
         category_id: UUID | None = None,
         tag_slugs: list[str] | None = None,
+        current_user_id: UUID | None = None,
     ) -> tuple[list[KnowledgeArticleModel], int]:
         """
         Полнотекстовый поиск по статьям.
+
+        Показывает все опубликованные статьи + черновики текущего пользователя.
 
         Args:
             query: Поисковый запрос
             pagination: Параметры пагинации
             category_id: Фильтр по категории
             tag_slugs: Фильтр по тегам
+            current_user_id: ID текущего пользователя для показа его черновиков
 
         Returns:
             Кортеж (список статей, общее количество)
@@ -220,6 +228,7 @@ class KnowledgeService(BaseService):
             pagination=pagination,
             category_id=category_id,
             tag_slugs=tag_slugs,
+            current_user_id=current_user_id,
         )
 
         self.logger.info(

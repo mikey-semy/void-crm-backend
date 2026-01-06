@@ -153,6 +153,7 @@ class KnowledgeArticleListItemSchema(CommonBaseSchema):
         view_count: Количество просмотров.
         published_at: Дата публикации.
         created_at: Дата создания.
+        updated_at: Дата последнего обновления.
     """
 
     id: uuid.UUID = Field(description="ID статьи")
@@ -167,6 +168,7 @@ class KnowledgeArticleListItemSchema(CommonBaseSchema):
     view_count: int = Field(default=0, description="Количество просмотров")
     published_at: datetime | None = Field(None, description="Дата публикации")
     created_at: datetime = Field(description="Дата создания")
+    updated_at: datetime = Field(description="Дата последнего обновления")
 
 
 class KnowledgeArticleDetailSchema(KnowledgeArticleListItemSchema):
@@ -175,8 +177,6 @@ class KnowledgeArticleDetailSchema(KnowledgeArticleListItemSchema):
 
     Attributes:
         content: Полный контент в формате Markdown.
-        updated_at: Дата последнего обновления.
     """
 
     content: str = Field(description="Контент в формате Markdown")
-    updated_at: datetime = Field(description="Дата последнего обновления")

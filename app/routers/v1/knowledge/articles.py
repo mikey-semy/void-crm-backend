@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import Query
 
 from app.core.dependencies.knowledge import KnowledgeServiceDep
-from app.core.security import CurrentUserDep
+from app.core.security import CurrentUserDep, OptionalCurrentUserDep
 from app.routers.base import BaseRouter, ProtectedRouter
 from app.schemas import PaginatedDataSchema, PaginationMetaSchema, PaginationParamsSchema
 from app.schemas.v1.knowledge import (
@@ -71,6 +71,7 @@ def _article_to_list_schema(article) -> KnowledgeArticleListItemSchema:
         view_count=article.view_count,
         published_at=article.published_at,
         created_at=article.created_at,
+        updated_at=article.updated_at,
     )
 
 
@@ -213,6 +214,8 @@ class KnowledgeArticleRouter(BaseRouter):
 Возвращает статью с полным контентом.
 Автоматически увеличивает счётчик просмотров.
 
+Если пользователь авторизован, он может просматривать свои черновики.
+
 ### Path Parameters:
 - **slug** — URL-friendly идентификатор статьи
 
@@ -223,12 +226,18 @@ class KnowledgeArticleRouter(BaseRouter):
         async def get_article_by_slug(
             slug: str,
             service: KnowledgeServiceDep,
+            current_user: OptionalCurrentUserDep,
         ) -> KnowledgeArticleResponseSchema:
             """Получает статью по slug."""
-            article = await service.get_article_by_slug(slug, published_only=True)
+            # Если пользователь авторизован, позволяем просматривать его черновики
+            current_user_id = current_user.id if current_user else None
+            article = await service.get_article_by_slug(
+                slug, published_only=True, current_user_id=current_user_id
+            )
 
-            # Увеличиваем счётчик просмотров
-            await service.increment_article_views(article.id)
+            # Увеличиваем счётчик просмотров только для опубликованных статей
+            if article.is_published:
+                await service.increment_article_views(article.id)
 
             schema = _article_to_detail_schema(article)
 

@@ -61,8 +61,10 @@ class APIv1(BaseRouter):
         self.router.include_router(DecisionFieldRouter().get_router())
         self.router.include_router(PartnershipDecisionsRouter().get_router())
         # Knowledge Base роутеры
-        self.router.include_router(KnowledgeArticleRouter().get_router())
+        # ВАЖНО: Protected роутер должен быть ПЕРЕД публичным,
+        # иначе /{slug} перехватит /drafts
         self.router.include_router(KnowledgeArticleProtectedRouter().get_router())
+        self.router.include_router(KnowledgeArticleRouter().get_router())
         self.router.include_router(KnowledgeCategoryRouter().get_router())
         self.router.include_router(KnowledgeCategoryProtectedRouter().get_router())
         self.router.include_router(KnowledgeTagRouter().get_router())

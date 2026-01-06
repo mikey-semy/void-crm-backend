@@ -10,7 +10,7 @@
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -219,12 +219,14 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         self,
         slug: str,
         published_only: bool = True,
+        current_user_id: UUID | None = None,
     ) -> KnowledgeArticleModel | None:
         """Получить статью по slug с категорией, тегами и автором.
 
         Args:
             slug: URL-friendly идентификатор.
             published_only: Только опубликованные статьи.
+            current_user_id: ID текущего пользователя для просмотра своих черновиков.
 
         Returns:
             KnowledgeArticleModel с загруженными связями или None.
@@ -240,7 +242,16 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         )
 
         if published_only:
-            stmt = stmt.where(KnowledgeArticleModel.is_published == True)  # noqa: E712
+            # Если есть current_user_id, показываем опубликованные ИЛИ черновики этого пользователя
+            if current_user_id:
+                stmt = stmt.where(
+                    or_(
+                        KnowledgeArticleModel.is_published == True,  # noqa: E712
+                        KnowledgeArticleModel.author_id == current_user_id,
+                    )
+                )
+            else:
+                stmt = stmt.where(KnowledgeArticleModel.is_published == True)  # noqa: E712
 
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -322,23 +333,40 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         pagination: "PaginationParamsSchema",
         category_id: UUID | None = None,
         tag_slugs: list[str] | None = None,
+        current_user_id: UUID | None = None,
     ) -> tuple[list[KnowledgeArticleModel], int]:
         """Полнотекстовый поиск по статьям.
 
         Использует PostgreSQL tsvector и ts_rank для ранжирования результатов.
         Веса: title (A), description (B), content (C).
 
+        Показывает:
+        - Все опубликованные статьи
+        - Черновики текущего пользователя (если current_user_id передан)
+
         Args:
             query: Поисковый запрос.
             pagination: Параметры пагинации.
             category_id: Фильтр по категории.
             tag_slugs: Фильтр по тегам.
+            current_user_id: ID текущего пользователя для показа его черновиков.
 
         Returns:
             Кортеж (список статей, общее количество).
         """
+        from sqlalchemy import or_
+
         # Создаём tsquery из поискового запроса
         search_query = func.plainto_tsquery("russian", query)
+
+        # Условие видимости: опубликовано ИЛИ автор = текущий пользователь
+        if current_user_id:
+            visibility_condition = or_(
+                KnowledgeArticleModel.is_published == True,  # noqa: E712
+                KnowledgeArticleModel.author_id == current_user_id,
+            )
+        else:
+            visibility_condition = KnowledgeArticleModel.is_published == True  # noqa: E712
 
         # Базовый запрос с полнотекстовым поиском
         stmt = (
@@ -349,7 +377,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
                     search_query,
                 ).label("rank"),
             )
-            .where(KnowledgeArticleModel.is_published == True)  # noqa: E712
+            .where(visibility_condition)
             .where(KnowledgeArticleModel.search_vector.op("@@")(search_query))
             .options(
                 selectinload(KnowledgeArticleModel.category),
@@ -419,6 +447,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
             select(KnowledgeArticleModel)
             .where(KnowledgeArticleModel.author_id == author_id)
             .options(
+                selectinload(KnowledgeArticleModel.author),
                 selectinload(KnowledgeArticleModel.category),
                 selectinload(KnowledgeArticleModel.tags),
             )

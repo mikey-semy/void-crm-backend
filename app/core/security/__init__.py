@@ -13,9 +13,11 @@ from .auth import (
     CurrentAdminDep,
     CurrentUserDep,
     CurrentUserOrApiKeyDep,
+    OptionalCurrentUserDep,
     get_current_admin,
     get_current_user,
     get_current_user_or_api_key,
+    get_optional_current_user,
 )
 from .cookie_manager import CookieManager, TokenCookieKey
 from .encryption import EncryptionService, get_encryption_service
@@ -34,7 +36,9 @@ __all__ = [
     "get_current_user",
     "get_current_admin",
     "get_current_user_or_api_key",
+    "get_optional_current_user",
     "CurrentUserDep",
     "CurrentAdminDep",
     "CurrentUserOrApiKeyDep",
+    "OptionalCurrentUserDep",
 ]
