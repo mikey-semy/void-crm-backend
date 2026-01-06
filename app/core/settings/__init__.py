@@ -14,6 +14,7 @@
 
 from functools import lru_cache
 
+from .ai import AISettings
 from .base import Settings
 from .logging import LoggingSettings
 from .paths import PathSettings
@@ -26,6 +27,7 @@ class CompositeSettings(Settings):
         super().__init__(**kwargs)
         self.paths = PathSettings()
         self.logging = LoggingSettings()
+        self.ai = AISettings()
 
 
 @lru_cache

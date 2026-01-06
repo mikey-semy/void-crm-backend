@@ -9,6 +9,14 @@ from .checklist import (
     TaskDecisionFieldModel,
     TaskDecisionValueModel,
 )
+from .knowledge import (
+    KnowledgeArticleModel,
+    KnowledgeArticleTagModel,
+    KnowledgeCategoryModel,
+    KnowledgeTagModel,
+)
+from .user_settings import UserAccessTokenModel
+from .system_settings import SystemSettingsKeys, SystemSettingsModel
 
 __all__ = [
     "UserModel",
@@ -19,4 +27,11 @@ __all__ = [
     "DecisionFieldType",
     "TaskDecisionFieldModel",
     "TaskDecisionValueModel",
+    "KnowledgeArticleModel",
+    "KnowledgeArticleTagModel",
+    "KnowledgeCategoryModel",
+    "KnowledgeTagModel",
+    "UserAccessTokenModel",
+    "SystemSettingsKeys",
+    "SystemSettingsModel",
 ]

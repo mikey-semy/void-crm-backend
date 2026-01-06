@@ -8,6 +8,8 @@ from ..base import BaseModel
 
 if TYPE_CHECKING:
     from .roles import UserRoleModel
+    from .knowledge import KnowledgeArticleModel
+    from .user_settings import UserAccessTokenModel
 
 
 class UserModel(BaseModel):
@@ -153,6 +155,18 @@ class UserModel(BaseModel):
         foreign_keys="[UserRoleModel.user_id]",
         back_populates="user",
         passive_deletes=True,
+        cascade="all, delete-orphan",
+    )
+
+    knowledge_articles: Mapped[list["KnowledgeArticleModel"]] = relationship(
+        "KnowledgeArticleModel",
+        back_populates="author",
+        order_by="desc(KnowledgeArticleModel.created_at)",
+    )
+
+    access_tokens: Mapped[list["UserAccessTokenModel"]] = relationship(
+        "UserAccessTokenModel",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 

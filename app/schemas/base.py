@@ -35,7 +35,9 @@ class CommonBaseSchema(BaseModel):
         to_dict(): Преобразует объект в словарь.
     """
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     def to_dict(self) -> dict:
         return self.model_dump(exclude_none=True)

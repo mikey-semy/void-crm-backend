@@ -8,7 +8,10 @@
       "Bash(uv sync:*)",
       "Bash(.venv/Scripts/python.exe:*)",
       "Bash(.venv/Scripts/python:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(cat:*)"
     ]
   }
 }

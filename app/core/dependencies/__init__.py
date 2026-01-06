@@ -12,6 +12,7 @@ from .pagination import PaginationDep
 from .auth import AuthServiceDep
 from .token import TokenServiceDep
 from .users import UserServiceDep
+from .user_settings import UserAccessTokenServiceDep
 
 __all__ = [
     # Database dependencies
@@ -26,4 +27,6 @@ __all__ = [
     "TokenServiceDep",
     # User dependencies
     "UserServiceDep",
+    # User settings dependencies
+    "UserAccessTokenServiceDep",
 ]
