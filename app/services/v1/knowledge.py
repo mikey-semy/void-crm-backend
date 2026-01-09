@@ -21,18 +21,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.integrations.ai import OpenRouterClient
+from app.core.security.encryption import get_encryption_service
 from app.core.settings import settings
 from app.core.utils import generate_slug
 from app.models.v1 import (
     KnowledgeArticleModel,
     KnowledgeCategoryModel,
     KnowledgeTagModel,
+    SystemSettingsKeys,
 )
 from app.repository.v1.knowledge import (
     KnowledgeArticleRepository,
     KnowledgeCategoryRepository,
     KnowledgeTagRepository,
 )
+from app.repository.v1.system_settings import SystemSettingsRepository
 from app.services.base import BaseService
 
 if TYPE_CHECKING:
@@ -82,7 +85,9 @@ class KnowledgeService(BaseService):
         self.article_repository = KnowledgeArticleRepository(session)
         self.category_repository = KnowledgeCategoryRepository(session)
         self.tag_repository = KnowledgeTagRepository(session)
+        self.system_settings_repository = SystemSettingsRepository(session)
         self._ai_settings = settings.ai
+        self._encryption = get_encryption_service()
 
     def _get_openrouter_client(self, api_key: str) -> OpenRouterClient:
         """
@@ -101,6 +106,34 @@ class KnowledgeService(BaseService):
             app_name=self._ai_settings.OPENROUTER_APP_NAME,
             timeout=self._ai_settings.OPENROUTER_TIMEOUT,
             default_embedding_model=self._ai_settings.RAG_DEFAULT_MODEL,
+        )
+
+    async def _get_system_api_key(self) -> str | None:
+        """
+        Получает расшифрованный API ключ из системных настроек.
+
+        Returns:
+            Расшифрованный API ключ или None
+        """
+        encrypted = await self.system_settings_repository.get_value(
+            SystemSettingsKeys.RAG_API_KEY,
+            "",
+        )
+        if not encrypted:
+            return None
+
+        return self._encryption.decrypt(encrypted)
+
+    async def _get_embedding_model(self) -> str:
+        """
+        Получает модель эмбеддингов из системных настроек.
+
+        Returns:
+            ID модели эмбеддингов
+        """
+        return await self.system_settings_repository.get_value(
+            SystemSettingsKeys.RAG_EMBEDDING_MODEL,
+            self._ai_settings.RAG_DEFAULT_MODEL,
         )
 
     # ==================== СТАТЬИ ====================
@@ -162,7 +195,7 @@ class KnowledgeService(BaseService):
     async def get_published_articles(
         self,
         pagination: "PaginationParamsSchema",
-        category_id: UUID | None = None,
+        category_ids: list[UUID] | None = None,
         tag_slugs: list[str] | None = None,
         featured_only: bool = False,
     ) -> tuple[list[KnowledgeArticleModel], int]:
@@ -171,7 +204,7 @@ class KnowledgeService(BaseService):
 
         Args:
             pagination: Параметры пагинации
-            category_id: Фильтр по категории
+            category_ids: Фильтр по категориям (статья должна принадлежать хотя бы одной)
             tag_slugs: Фильтр по тегам
             featured_only: Только закреплённые статьи
 
@@ -180,7 +213,7 @@ class KnowledgeService(BaseService):
         """
         articles, total = await self.article_repository.get_published(
             pagination=pagination,
-            category_id=category_id,
+            category_ids=category_ids,
             tag_slugs=tag_slugs,
             featured_only=featured_only,
         )
@@ -197,7 +230,7 @@ class KnowledgeService(BaseService):
         self,
         query: str,
         pagination: "PaginationParamsSchema",
-        category_id: UUID | None = None,
+        category_ids: list[UUID] | None = None,
         tag_slugs: list[str] | None = None,
         current_user_id: UUID | None = None,
     ) -> tuple[list[KnowledgeArticleModel], int]:
@@ -209,7 +242,7 @@ class KnowledgeService(BaseService):
         Args:
             query: Поисковый запрос
             pagination: Параметры пагинации
-            category_id: Фильтр по категории
+            category_ids: Фильтр по категориям (статья должна принадлежать хотя бы одной)
             tag_slugs: Фильтр по тегам
             current_user_id: ID текущего пользователя для показа его черновиков
 
@@ -220,13 +253,12 @@ class KnowledgeService(BaseService):
             raise ValidationError(
                 detail="Поисковый запрос должен содержать минимум 2 символа",
                 field="query",
-                value=query,
             )
 
         articles, total = await self.article_repository.full_text_search(
             query=query.strip(),
             pagination=pagination,
-            category_id=category_id,
+            category_ids=category_ids,
             tag_slugs=tag_slugs,
             current_user_id=current_user_id,
         )
@@ -385,7 +417,7 @@ class KnowledgeService(BaseService):
 
     async def publish_article(self, article_id: UUID) -> KnowledgeArticleModel:
         """
-        Публикует статью.
+        Публикует статью и отправляет задачу на индексацию для RAG в очередь.
 
         Args:
             article_id: UUID статьи
@@ -402,7 +434,22 @@ class KnowledgeService(BaseService):
 
         self.logger.info("Опубликована статья: %s (id=%s)", article.title, article_id)
 
-        return article
+        # Отправляем задачу на индексацию в очередь RabbitMQ
+        try:
+            from app.core.messaging.publisher import publish_article_indexing
+
+            await publish_article_indexing(article_id)
+            self.logger.info(
+                "Задача на индексацию статьи отправлена в очередь: %s", article_id
+            )
+        except Exception as e:
+            # Не прерываем публикацию из-за ошибки отправки в очередь
+            self.logger.error(
+                "Ошибка отправки задачи индексации в очередь %s: %s", article_id, e
+            )
+
+        # Перезагружаем с связями
+        return await self.article_repository.get_by_id_with_relations(article_id)
 
     async def unpublish_article(self, article_id: UUID) -> KnowledgeArticleModel:
         """
@@ -423,7 +470,8 @@ class KnowledgeService(BaseService):
 
         self.logger.info("Снята с публикации статья: %s (id=%s)", article.title, article_id)
 
-        return article
+        # Перезагружаем с связями
+        return await self.article_repository.get_by_id_with_relations(article_id)
 
     async def increment_article_views(self, article_id: UUID) -> None:
         """
@@ -433,6 +481,71 @@ class KnowledgeService(BaseService):
             article_id: UUID статьи
         """
         await self.article_repository.increment_view_count(article_id)
+
+    async def generate_description(
+        self,
+        title: str,
+        content: str,
+    ) -> str:
+        """
+        Генерирует описание статьи с помощью ИИ.
+
+        Args:
+            title: Заголовок статьи
+            content: Содержимое статьи
+
+        Returns:
+            Сгенерированное описание (1-2 предложения)
+
+        Raises:
+            ValidationError: Если API ключ не настроен или LLM модель не выбрана
+        """
+        api_key = await self._get_system_api_key()
+        if not api_key:
+            raise ValidationError(
+                detail="API ключ OpenRouter не настроен",
+                field="api_key",
+            )
+
+        llm_model = await self.system_settings_repository.get_value(
+            SystemSettingsKeys.AI_LLM_MODEL,
+            "",
+        )
+        if not llm_model:
+            raise ValidationError(
+                detail="LLM модель не настроена",
+                field="llm_model",
+            )
+
+        client = self._get_openrouter_client(api_key)
+
+        # Ограничиваем контент для экономии токенов
+        truncated_content = content[:3000] if len(content) > 3000 else content
+
+        prompt = f"""Напиши краткое описание для статьи базы знаний.
+Описание должно быть на русском языке, 1-2 предложения, без кавычек.
+Описание должно кратко передавать суть статьи и привлекать читателя.
+
+Заголовок: {title}
+
+Содержимое:
+{truncated_content}
+
+Описание:"""
+
+        description = await client.complete(
+            prompt=prompt,
+            model=llm_model,
+            max_tokens=200,
+            temperature=0.7,
+        )
+
+        # Убираем лишние кавычки и пробелы
+        description = description.strip().strip('"\'')
+
+        self.logger.info("Сгенерировано описание для статьи: %s", title[:50])
+
+        return description
 
     # ==================== RAG (СЕМАНТИЧЕСКИЙ ПОИСК) ====================
 
@@ -512,9 +625,9 @@ class KnowledgeService(BaseService):
             >>> print(f"Проиндексировано {count} статей")
         """
         # Получаем все статьи без эмбеддингов
-        articles = await self.article_repository.get_items_by_filter(
+        articles = await self.article_repository.filter_by(
             is_published=True,
-            embedding=None,
+            embedding__is_null=True,
         )
 
         if not articles:
@@ -542,6 +655,68 @@ class KnowledgeService(BaseService):
 
         return len(articles)
 
+    async def semantic_search_public(
+        self,
+        query: str,
+        pagination: "PaginationParamsSchema",
+        category_ids: list[UUID] | None = None,
+    ) -> tuple[list[KnowledgeArticleModel], int]:
+        """
+        Публичный семантический поиск по статьям через RAG.
+
+        Использует API ключ и модель из системных настроек.
+        Для использования на фронтенде без передачи ключа.
+
+        Args:
+            query: Поисковый запрос
+            pagination: Параметры пагинации
+            category_ids: Фильтр по категориям
+
+        Returns:
+            Кортеж (список статей, общее количество)
+
+        Raises:
+            ValidationError: Если запрос слишком короткий или API ключ не настроен
+        """
+        if not query or len(query.strip()) < 2:
+            raise ValidationError(
+                detail="Поисковый запрос должен содержать минимум 2 символа",
+                field="query",
+                value=query,
+            )
+
+        # Получаем API ключ из системных настроек
+        api_key = await self._get_system_api_key()
+        if not api_key:
+            raise ValidationError(
+                detail="Семантический поиск недоступен: API ключ не настроен",
+                field="api_key",
+            )
+
+        model = await self._get_embedding_model()
+
+        # Создаём эмбеддинг запроса
+        client = self._get_openrouter_client(api_key)
+        query_embedding = await client.create_embedding(text=query.strip(), model=model)
+
+        # Ищем похожие статьи
+        # Берём первую категорию если передан список (для совместимости)
+        category_id = category_ids[0] if category_ids else None
+
+        articles, total = await self.article_repository.semantic_search(
+            embedding=query_embedding,
+            pagination=pagination,
+            category_id=category_id,
+        )
+
+        self.logger.info(
+            "Публичный семантический поиск '%s': найдено %d статей",
+            query,
+            total,
+        )
+
+        return articles, total
+
     async def semantic_search(
         self,
         query: str,
@@ -551,7 +726,7 @@ class KnowledgeService(BaseService):
         model: str = "openai/text-embedding-3-small",
     ) -> tuple[list[KnowledgeArticleModel], int]:
         """
-        Семантический поиск по статьям через RAG.
+        Семантический поиск по статьям через RAG (с явным API ключом).
 
         Создаёт эмбеддинг запроса и ищет похожие статьи по косинусному расстоянию.
 
@@ -788,6 +963,15 @@ class KnowledgeService(BaseService):
             Список тегов
         """
         return await self.tag_repository.get_items()
+
+    async def get_all_tags_with_counts(self) -> list[dict[str, Any]]:
+        """
+        Получает все теги с количеством статей.
+
+        Returns:
+            Список словарей с тегами и articles_count
+        """
+        return await self.tag_repository.get_all_with_counts()
 
     async def get_popular_tags(self, limit: int = 20) -> list[dict[str, Any]]:
         """

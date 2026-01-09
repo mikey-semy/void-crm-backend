@@ -155,6 +155,33 @@ class KnowledgeTagRepository(BaseRepository[KnowledgeTagModel]):
 
         return await self.filter_by(slug__in=slugs)
 
+    async def get_all_with_counts(self) -> list[dict[str, Any]]:
+        """Получить все теги с количеством статей.
+
+        Returns:
+            Список словарей с тегами и их articles_count.
+        """
+        stmt = (
+            select(
+                KnowledgeTagModel,
+                func.count(KnowledgeArticleTagModel.article_id).label("articles_count"),
+            )
+            .outerjoin(KnowledgeArticleTagModel)
+            .group_by(KnowledgeTagModel.id)
+            .order_by(KnowledgeTagModel.name)
+        )
+
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        return [
+            {
+                "tag": row[0],
+                "articles_count": row[1] or 0,
+            }
+            for row in rows
+        ]
+
     async def get_popular(self, limit: int = 20) -> list[dict[str, Any]]:
         """Получить популярные теги по количеству статей.
 
@@ -284,7 +311,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
     async def get_published(
         self,
         pagination: "PaginationParamsSchema",
-        category_id: UUID | None = None,
+        category_ids: list[UUID] | None = None,
         tag_slugs: list[str] | None = None,
         featured_only: bool = False,
     ) -> tuple[list[KnowledgeArticleModel], int]:
@@ -292,7 +319,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
 
         Args:
             pagination: Параметры пагинации.
-            category_id: Фильтр по категории.
+            category_ids: Фильтр по категориям (статья должна принадлежать хотя бы одной).
             tag_slugs: Фильтр по тегам (статья должна иметь хотя бы один из тегов).
             featured_only: Только закреплённые статьи.
 
@@ -309,8 +336,8 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
             )
         )
 
-        if category_id:
-            stmt = stmt.where(KnowledgeArticleModel.category_id == category_id)
+        if category_ids:
+            stmt = stmt.where(KnowledgeArticleModel.category_id.in_(category_ids))
 
         if featured_only:
             stmt = stmt.where(KnowledgeArticleModel.is_featured == True)  # noqa: E712
@@ -331,7 +358,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         self,
         query: str,
         pagination: "PaginationParamsSchema",
-        category_id: UUID | None = None,
+        category_ids: list[UUID] | None = None,
         tag_slugs: list[str] | None = None,
         current_user_id: UUID | None = None,
     ) -> tuple[list[KnowledgeArticleModel], int]:
@@ -347,7 +374,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         Args:
             query: Поисковый запрос.
             pagination: Параметры пагинации.
-            category_id: Фильтр по категории.
+            category_ids: Фильтр по категориям (статья должна принадлежать хотя бы одной).
             tag_slugs: Фильтр по тегам.
             current_user_id: ID текущего пользователя для показа его черновиков.
 
@@ -386,8 +413,8 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
             )
         )
 
-        if category_id:
-            stmt = stmt.where(KnowledgeArticleModel.category_id == category_id)
+        if category_ids:
+            stmt = stmt.where(KnowledgeArticleModel.category_id.in_(category_ids))
 
         if tag_slugs:
             stmt = stmt.where(

@@ -1,5 +1,6 @@
 [project]
 dependencies = [
+  "aio-pika>=9.5.7",
   "fastapi>=0.116.1",
   "uvicorn[standard]>=0.35.0",
   "sqlalchemy>=2.0.0",
@@ -36,6 +37,7 @@ check = "scripts.commands:check"
 dev = "scripts.commands:dev"
 format = "scripts.commands:format_code"
 migrate = "scripts.commands:migrate"
+worker = "scripts.commands:worker"
 
 [build-system]
 build-backend = "hatchling.build"

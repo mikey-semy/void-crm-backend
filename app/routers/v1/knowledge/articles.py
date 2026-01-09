@@ -22,6 +22,8 @@ from app.schemas.v1.knowledge import (
     KnowledgeArticleUpdateSchema,
     KnowledgeAuthorSchema,
     KnowledgeCategoryListItemSchema,
+    KnowledgeGenerateDescriptionSchema,
+    KnowledgeGeneratedDescriptionSchema,
     KnowledgeTagListItemSchema,
 )
 
@@ -152,7 +154,7 @@ class KnowledgeArticleRouter(BaseRouter):
 ### Query Parameters:
 - **page** — Номер страницы (по умолчанию 1)
 - **page_size** — Размер страницы (по умолчанию 20)
-- **category_id** — Фильтр по категории
+- **categories** — Фильтр по категориям (UUID через запятую)
 - **tags** — Фильтр по тегам (slugs через запятую)
 - **featured** — Только закреплённые статьи
 
@@ -164,7 +166,7 @@ class KnowledgeArticleRouter(BaseRouter):
             service: KnowledgeServiceDep,
             page: int = Query(1, ge=1, description="Номер страницы"),
             page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
-            category_id: UUID | None = Query(None, description="Фильтр по категории"),
+            categories: str | None = Query(None, description="Фильтр по категориям (UUID через запятую)"),
             tags: str | None = Query(None, description="Фильтр по тегам (slugs через запятую)"),
             featured: bool = Query(False, description="Только закреплённые"),
         ) -> KnowledgeArticleListResponseSchema:
@@ -177,10 +179,11 @@ class KnowledgeArticleRouter(BaseRouter):
             )
 
             tag_slugs = tags.split(",") if tags else None
+            category_ids = [UUID(c.strip()) for c in categories.split(",") if c.strip()] if categories else None
 
             articles, total = await service.get_published_articles(
                 pagination=pagination,
-                category_id=category_id,
+                category_ids=category_ids,
                 tag_slugs=tag_slugs,
                 featured_only=featured,
             )
@@ -483,4 +486,40 @@ class KnowledgeArticleProtectedRouter(ProtectedRouter):
                 success=True,
                 message="Статья снята с публикации",
                 data=schema,
+            )
+
+        @self.router.post(
+            path="/generate-description",
+            response_model=KnowledgeGeneratedDescriptionSchema,
+            description="""\
+## 🤖 Сгенерировать описание
+
+Генерирует краткое описание статьи с помощью ИИ.
+
+### Request Body:
+- **title** — Заголовок статьи
+- **content** — Содержимое статьи
+
+### Returns:
+- Сгенерированное описание (1-2 предложения)
+
+### Требования:
+- API ключ OpenRouter должен быть настроен в системных настройках
+- LLM модель должна быть выбрана в настройках AI
+""",
+        )
+        async def generate_description(
+            data: KnowledgeGenerateDescriptionSchema,
+            service: KnowledgeServiceDep,
+        ) -> KnowledgeGeneratedDescriptionSchema:
+            """Генерирует описание статьи с помощью ИИ."""
+            description = await service.generate_description(
+                title=data.title,
+                content=data.content,
+            )
+
+            return KnowledgeGeneratedDescriptionSchema(
+                success=True,
+                message="Описание сгенерировано",
+                data=description,
             )

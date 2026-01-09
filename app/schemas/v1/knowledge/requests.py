@@ -217,3 +217,19 @@ class KnowledgeSearchQuerySchema(BaseRequestSchema):
     query: Annotated[str, Field(min_length=2, max_length=200, description="Поисковый запрос")]
     category_id: uuid.UUID | None = Field(None, description="Фильтр по категории")
     tag_slugs: str | None = Field(None, description="Фильтр по тегам (slugs через запятую)")
+
+
+# ==================== AI ====================
+
+
+class KnowledgeGenerateDescriptionSchema(BaseRequestSchema):
+    """
+    Схема запроса на генерацию описания статьи.
+
+    Attributes:
+        title: Заголовок статьи.
+        content: Содержимое статьи.
+    """
+
+    title: Annotated[str, Field(min_length=3, max_length=500, description="Заголовок статьи")]
+    content: Annotated[str, Field(min_length=10, description="Содержимое статьи")]

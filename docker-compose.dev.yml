@@ -1,4 +1,26 @@
 services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    user: rabbitmq  # Явно указываем пользователя
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    env_file:
+      - ./.env.dev
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-admin}
+      - RABBITMQ_DEFAULT_VHOST=/
+      - RABBITMQ_ERLANG_COOKIE=SWQOKODSQALRPCLNMEQG  # Фиксированный cookie
+    healthcheck:
+      # Проверяем, что RabbitMQ действительно готов принимать подключения
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+    networks:
+      - dev-network
   postgres:
     image: pgvector/pgvector:pg16
     healthcheck:

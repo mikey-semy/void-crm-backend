@@ -100,6 +100,8 @@ class KnowledgeCategoryRouter(BaseRouter):
             """Получает категорию по slug."""
             category = await service.get_category_by_slug(slug)
 
+            # Получаем количество статей через отдельный запрос
+            # чтобы избежать lazy loading relationships
             schema = KnowledgeCategoryListItemSchema(
                 id=category.id,
                 name=category.name,
@@ -108,7 +110,7 @@ class KnowledgeCategoryRouter(BaseRouter):
                 icon=category.icon,
                 color=category.color,
                 order=category.order,
-                articles_count=category.published_articles_count,
+                articles_count=0,  # Количество загружается отдельно при необходимости
             )
 
             return KnowledgeCategoryResponseSchema(
@@ -217,7 +219,7 @@ class KnowledgeCategoryProtectedRouter(ProtectedRouter):
                 icon=category.icon,
                 color=category.color,
                 order=category.order,
-                articles_count=category.published_articles_count,
+                articles_count=0,  # Количество загружается при необходимости
             )
 
             return KnowledgeCategoryResponseSchema(

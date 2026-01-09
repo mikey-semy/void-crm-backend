@@ -85,3 +85,12 @@ class KnowledgeTagDeletedSchema(BaseResponseSchema):
     """Ответ об удалении тега."""
 
     message: str = Field(default="Тег успешно удалён", description="Сообщение")
+
+
+# ==================== AI ====================
+
+
+class KnowledgeGeneratedDescriptionSchema(BaseResponseSchema):
+    """Ответ с сгенерированным описанием."""
+
+    data: str = Field(description="Сгенерированное описание")

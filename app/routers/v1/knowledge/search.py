@@ -1,7 +1,9 @@
 """
-Роутер для полнотекстового поиска по базе знаний.
+Роутер для поиска по базе знаний.
 
-Использует PostgreSQL tsvector для эффективного поиска.
+Поддерживает два режима:
+- Полнотекстовый поиск через PostgreSQL tsvector
+- Семантический поиск (RAG) через OpenRouter embeddings + pgvector
 """
 
 from uuid import UUID
@@ -72,10 +74,10 @@ def _article_to_list_schema(article) -> KnowledgeArticleListItemSchema:
 
 class KnowledgeSearchRouter(BaseRouter):
     """
-    Роутер для полнотекстового поиска по базе знаний.
+    Роутер для поиска по базе знаний.
 
     Public endpoints:
-        GET /knowledge/search - Полнотекстовый поиск по статьям
+        GET /knowledge/search - Поиск по статьям (полнотекстовый или семантический)
     """
 
     def __init__(self):
@@ -89,27 +91,33 @@ class KnowledgeSearchRouter(BaseRouter):
             path="",
             response_model=KnowledgeSearchResponseSchema,
             description="""\
-## 🔍 Полнотекстовый поиск по статьям
+## 🔍 Поиск по статьям
 
-Выполняет полнотекстовый поиск по заголовкам, описаниям и контенту статей.
-Использует PostgreSQL tsvector с поддержкой русского языка.
+Поддерживает два режима поиска:
 
-Результаты отсортированы по релевантности (ts_rank).
+### Полнотекстовый поиск (semantic=false, по умолчанию)
+- Использует PostgreSQL tsvector с поддержкой русского языка
+- Ищет точные совпадения слов в заголовках, описаниях и контенте
+- Быстрый, не требует внешних API
+
+### Семантический поиск / RAG (semantic=true)
+- Использует OpenRouter embeddings + pgvector
+- Ищет по смыслу запроса, а не по точным словам
+- Требует настроенный API ключ в системных настройках
+- Статьи должны быть проиндексированы (embedding != null)
 
 ### Query Parameters:
-- **q** — Поисковый запрос (минимум 2 символа, обязательно)
+- **q** — Поисковый запрос (минимум 2 символа)
+- **semantic** — Использовать семантический поиск (по умолчанию false)
 - **page** — Номер страницы (по умолчанию 1)
 - **page_size** — Размер страницы (по умолчанию 20)
-- **category_id** — Фильтр по категории
+- **categories** — Фильтр по категориям (UUID через запятую)
 - **tags** — Фильтр по тегам (slugs через запятую)
-
-### Returns:
-- Результаты поиска с пагинацией, отсортированные по релевантности
 
 ### Example:
 ```
-GET /api/v1/knowledge/search?q=react+hooks&page=1&page_size=10
-GET /api/v1/knowledge/search?q=typescript&category_id=<uuid>&tags=frontend,best-practices
+GET /api/v1/knowledge/search?q=react+hooks
+GET /api/v1/knowledge/search?q=как+настроить+docker&semantic=true
 ```
 """,
         )
@@ -117,12 +125,13 @@ GET /api/v1/knowledge/search?q=typescript&category_id=<uuid>&tags=frontend,best-
             service: KnowledgeServiceDep,
             current_user: OptionalCurrentUserDep,
             q: str = Query(..., min_length=2, max_length=200, description="Поисковый запрос"),
+            semantic: bool = Query(False, description="Использовать семантический поиск (RAG)"),
             page: int = Query(1, ge=1, description="Номер страницы"),
             page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
-            category_id: UUID | None = Query(None, description="Фильтр по категории"),
+            categories: str | None = Query(None, description="Фильтр по категориям (UUID через запятую)"),
             tags: str | None = Query(None, description="Фильтр по тегам (slugs через запятую)"),
         ) -> KnowledgeSearchResponseSchema:
-            """Выполняет полнотекстовый поиск."""
+            """Выполняет поиск по статьям."""
             pagination = PaginationParamsSchema(
                 page=page,
                 page_size=page_size,
@@ -131,17 +140,29 @@ GET /api/v1/knowledge/search?q=typescript&category_id=<uuid>&tags=frontend,best-
             )
 
             tag_slugs = tags.split(",") if tags else None
+            category_ids = [UUID(c.strip()) for c in categories.split(",") if c.strip()] if categories else None
 
             # Если пользователь авторизован, показываем ему также его черновики
             current_user_id = current_user.id if current_user else None
 
-            articles, total = await service.search_articles(
-                query=q,
-                pagination=pagination,
-                category_id=category_id,
-                tag_slugs=tag_slugs,
-                current_user_id=current_user_id,
-            )
+            if semantic:
+                # Семантический поиск через RAG
+                articles, total = await service.semantic_search_public(
+                    query=q,
+                    pagination=pagination,
+                    category_ids=category_ids,
+                )
+                search_type = "семантический"
+            else:
+                # Полнотекстовый поиск
+                articles, total = await service.search_articles(
+                    query=q,
+                    pagination=pagination,
+                    category_ids=category_ids,
+                    tag_slugs=tag_slugs,
+                    current_user_id=current_user_id,
+                )
+                search_type = "полнотекстовый"
 
             schemas = [_article_to_list_schema(article) for article in articles]
 
@@ -149,7 +170,7 @@ GET /api/v1/knowledge/search?q=typescript&category_id=<uuid>&tags=frontend,best-
 
             return KnowledgeSearchResponseSchema(
                 success=True,
-                message=f"Найдено {total} статей по запросу '{q}'",
+                message=f"Найдено {total} статей ({search_type} поиск)",
                 data=PaginatedDataSchema(
                     items=schemas,
                     pagination=PaginationMetaSchema(

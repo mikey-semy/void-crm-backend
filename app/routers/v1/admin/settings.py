@@ -18,11 +18,13 @@ from app.core.security import CurrentAdminDep
 from app.core.settings import settings
 from app.routers.base import ProtectedRouter
 from app.schemas.v1.openrouter import OpenRouterEmbeddingModelSchema
+from app.core.dependencies.knowledge import KnowledgeServiceDep
 from app.schemas.v1.system_settings import (
     AISettingsResponseSchema,
     AISettingsUpdateSchema,
     EmbeddingModelsResponseSchema,
     LLMModelsResponseSchema,
+    ReindexResponseSchema,
 )
 
 
@@ -218,4 +220,49 @@ class AdminAISettingsRouter(ProtectedRouter):
                 success=True,
                 message=f"Загружено {len(models)} моделей из OpenRouter",
                 data=models,
+            )
+
+        @self.router.post(
+            path="/ai/reindex",
+            response_model=ReindexResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 🔄 Переиндексация статей
+
+Переиндексирует все опубликованные статьи для семантического поиска.
+Использует API ключ из системных настроек.
+
+### Требования:
+- Только для администраторов
+- Требуется настроенный API ключ
+
+### Returns:
+- Количество проиндексированных статей
+""",
+        )
+        async def reindex_articles(
+            ai_service: AISettingsServiceDep,
+            knowledge_service: KnowledgeServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> ReindexResponseSchema:
+            """Переиндексирует все статьи для RAG."""
+            api_key = await ai_service.get_decrypted_api_key()
+
+            if not api_key:
+                return ReindexResponseSchema(
+                    success=False,
+                    message="API ключ не настроен",
+                    indexed_count=0,
+                )
+
+            # Получаем модель эмбеддингов из настроек
+            ai_settings = await ai_service.get_settings()
+            model = ai_settings.embedding_model or "openai/text-embedding-3-small"
+
+            count = await knowledge_service.index_all_articles(api_key, model)
+
+            return ReindexResponseSchema(
+                success=True,
+                message=f"Проиндексировано {count} статей",
+                indexed_count=count,
             )

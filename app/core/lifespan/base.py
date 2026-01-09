@@ -241,3 +241,7 @@ from app.core.lifespan.database import (  # noqa: E402, F401
     initialize_database,
 )
 from app.core.lifespan.fixtures import load_fixtures_on_startup  # noqa: E402, F401
+from app.core.lifespan.messaging import (  # noqa: E402, F401
+    close_messaging_connection,
+    initialize_messaging,
+)

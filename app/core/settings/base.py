@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import EmailStr, PostgresDsn, RedisDsn, SecretStr, field_validator
+from pydantic import AmqpDsn, EmailStr, PostgresDsn, RedisDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DATABASE: str = "void_crm_db"
+
+    # Настройки RabbitMQ
+    RABBITMQ_CONNECTION_TIMEOUT: int = 60
+    RABBITMQ_EXCHANGE: str = "profitool_exchange"
+    RABBITMQ_USER: str
+    RABBITMQ_PASS: SecretStr
+    RABBITMQ_HOST: str = "localhost"
+    RABBITMQ_PORT: int = 5673
 
     # Redis
     REDIS_USER: str = "default"
@@ -363,6 +371,37 @@ class Settings(BaseSettings):
             "autoflush": False,  # Автоматическая очистка буфера перед выполнением запроса
             "expire_on_commit": False,  # Не инвалидировать объекты после коммита
             "class_": AsyncSession,
+        }
+
+    @property
+    def rabbitmq_dsn(self) -> AmqpDsn:
+        return AmqpDsn.build(
+            scheme="amqp",
+            username=self.RABBITMQ_USER,
+            password=self.RABBITMQ_PASS.get_secret_value(),
+            host=self.RABBITMQ_HOST,
+            port=self.RABBITMQ_PORT,
+        )
+
+    @property
+    def rabbitmq_url(self) -> str:
+        """
+        Для pika нужно строку с подключением к RabbitMQ
+        """
+        return str(self.rabbitmq_dsn)
+
+    @property
+    def rabbitmq_params(self) -> dict[str, Any]:
+        """
+        Формирует параметры подключения к RabbitMQ.
+
+        Returns:
+            Dict с параметрами подключения к RabbitMQ
+        """
+        return {
+            "url": self.rabbitmq_url,
+            "connection_timeout": self.RABBITMQ_CONNECTION_TIMEOUT,
+            "exchange": self.RABBITMQ_EXCHANGE,
         }
 
     @property

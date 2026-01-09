@@ -25,3 +25,9 @@ class LLMModelsResponseSchema(BaseResponseSchema):
     """Ответ со списком LLM моделей."""
 
     data: list[OpenRouterModelSchema]
+
+
+class ReindexResponseSchema(BaseResponseSchema):
+    """Ответ на запрос переиндексации статей."""
+
+    indexed_count: int

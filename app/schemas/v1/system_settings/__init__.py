@@ -6,6 +6,7 @@ from .responses import (
     AISettingsResponseSchema,
     EmbeddingModelsResponseSchema,
     LLMModelsResponseSchema,
+    ReindexResponseSchema,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "AISettingsResponseSchema",
     "EmbeddingModelsResponseSchema",
     "LLMModelsResponseSchema",
+    "ReindexResponseSchema",
 ]

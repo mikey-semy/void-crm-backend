@@ -15,6 +15,7 @@ from .requests import (
     KnowledgeArticleUpdateSchema,
     KnowledgeCategoryCreateSchema,
     KnowledgeCategoryUpdateSchema,
+    KnowledgeGenerateDescriptionSchema,
     KnowledgeSearchQuerySchema,
     KnowledgeTagCreateSchema,
     KnowledgeTagUpdateSchema,
@@ -26,6 +27,7 @@ from .responses import (
     KnowledgeCategoryDeletedSchema,
     KnowledgeCategoryListResponseSchema,
     KnowledgeCategoryResponseSchema,
+    KnowledgeGeneratedDescriptionSchema,
     KnowledgeSearchResponseSchema,
     KnowledgeTagDeletedSchema,
     KnowledgeTagListResponseSchema,
@@ -50,6 +52,7 @@ __all__ = [
     "KnowledgeArticleCreateSchema",
     "KnowledgeArticleUpdateSchema",
     "KnowledgeSearchQuerySchema",
+    "KnowledgeGenerateDescriptionSchema",
     # Responses
     "KnowledgeCategoryResponseSchema",
     "KnowledgeCategoryListResponseSchema",
@@ -61,4 +64,5 @@ __all__ = [
     "KnowledgeArticleDeletedSchema",
     "KnowledgeCategoryDeletedSchema",
     "KnowledgeTagDeletedSchema",
+    "KnowledgeGeneratedDescriptionSchema",
 ]

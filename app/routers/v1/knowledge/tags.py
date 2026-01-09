@@ -41,27 +41,27 @@ class KnowledgeTagRouter(BaseRouter):
             description="""\
 ## 🏷️ Получить все теги
 
-Возвращает все теги базы знаний.
+Возвращает все теги базы знаний с количеством статей.
 
 ### Returns:
-- Список всех тегов
+- Список всех тегов с articles_count
 """,
         )
         async def get_all_tags(
             service: KnowledgeServiceDep,
         ) -> KnowledgeTagListResponseSchema:
-            """Получает все теги."""
-            tags = await service.get_all_tags()
+            """Получает все теги с количеством статей."""
+            tags_data = await service.get_all_tags_with_counts()
 
             schemas = [
                 KnowledgeTagListItemSchema(
-                    id=tag.id,
-                    name=tag.name,
-                    slug=tag.slug,
-                    color=tag.color,
-                    articles_count=tag.articles_count,
+                    id=item["tag"].id,
+                    name=item["tag"].name,
+                    slug=item["tag"].slug,
+                    color=item["tag"].color,
+                    articles_count=item["articles_count"],
                 )
-                for tag in tags
+                for item in tags_data
             ]
 
             return KnowledgeTagListResponseSchema(
@@ -137,7 +137,7 @@ class KnowledgeTagRouter(BaseRouter):
                 name=tag.name,
                 slug=tag.slug,
                 color=tag.color,
-                articles_count=tag.articles_count,
+                articles_count=0,  # Количество загружается отдельно при необходимости
             )
 
             return KnowledgeTagResponseSchema(
@@ -237,7 +237,7 @@ class KnowledgeTagProtectedRouter(ProtectedRouter):
                 name=tag.name,
                 slug=tag.slug,
                 color=tag.color,
-                articles_count=tag.articles_count,
+                articles_count=0,  # Количество загружается отдельно при необходимости
             )
 
             return KnowledgeTagResponseSchema(
