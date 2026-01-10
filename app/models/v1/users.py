@@ -8,7 +8,7 @@ from ..base import BaseModel
 
 if TYPE_CHECKING:
     from .roles import UserRoleModel
-    from .knowledge import KnowledgeArticleModel
+    from .knowledge import KnowledgeArticleModel, KnowledgeChatSessionModel
     from .user_settings import UserAccessTokenModel
 
 
@@ -167,6 +167,13 @@ class UserModel(BaseModel):
     access_tokens: Mapped[list["UserAccessTokenModel"]] = relationship(
         "UserAccessTokenModel",
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    knowledge_chat_sessions: Mapped[list["KnowledgeChatSessionModel"]] = relationship(
+        "KnowledgeChatSessionModel",
+        back_populates="user",
+        order_by="desc(KnowledgeChatSessionModel.updated_at)",
         cascade="all, delete-orphan",
     )
 

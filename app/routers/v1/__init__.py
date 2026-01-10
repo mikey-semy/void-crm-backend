@@ -26,6 +26,7 @@ from app.routers.v1.knowledge import (
     KnowledgeArticleRouter,
     KnowledgeCategoryProtectedRouter,
     KnowledgeCategoryRouter,
+    KnowledgeChatRouter,
     KnowledgeMCPRouter,
     KnowledgeSearchRouter,
     KnowledgeTagProtectedRouter,
@@ -70,6 +71,7 @@ class APIv1(BaseRouter):
         self.router.include_router(KnowledgeTagRouter().get_router())
         self.router.include_router(KnowledgeTagProtectedRouter().get_router())
         self.router.include_router(KnowledgeSearchRouter().get_router())
+        self.router.include_router(KnowledgeChatRouter().get_router())
         # Knowledge Base MCP (для Claude Code)
         self.router.include_router(KnowledgeMCPRouter().get_router())
         # User Settings роутер (API ключи пользователя)

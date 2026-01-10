@@ -233,3 +233,21 @@ class KnowledgeGenerateDescriptionSchema(BaseRequestSchema):
 
     title: Annotated[str, Field(min_length=3, max_length=500, description="Заголовок статьи")]
     content: Annotated[str, Field(min_length=10, description="Содержимое статьи")]
+
+
+# ==================== ЧАТ ====================
+
+
+class KnowledgeChatRequestSchema(BaseRequestSchema):
+    """
+    Схема запроса к RAG-чату.
+
+    Attributes:
+        messages: История сообщений диалога.
+        use_context: Использовать контекст из базы знаний.
+    """
+
+    messages: list[dict[str, str]] = Field(
+        description="История сообщений [{role: 'user'|'assistant', content: '...'}]"
+    )
+    use_context: bool = Field(default=True, description="Использовать контекст из базы знаний")

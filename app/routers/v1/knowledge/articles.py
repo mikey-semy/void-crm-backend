@@ -157,6 +157,7 @@ class KnowledgeArticleRouter(BaseRouter):
 - **categories** — Фильтр по категориям (UUID через запятую)
 - **tags** — Фильтр по тегам (slugs через запятую)
 - **featured** — Только закреплённые статьи
+- **sort_by** — Сортировка (published_at, view_count, created_at, updated_at)
 
 ### Returns:
 - Список статей с пагинацией
@@ -169,23 +170,32 @@ class KnowledgeArticleRouter(BaseRouter):
             categories: str | None = Query(None, description="Фильтр по категориям (UUID через запятую)"),
             tags: str | None = Query(None, description="Фильтр по тегам (slugs через запятую)"),
             featured: bool = Query(False, description="Только закреплённые"),
+            author_id: str | None = Query(None, description="Фильтр по автору (UUID)"),
+            sort_by: str = Query("published_at", description="Сортировка (published_at, view_count, created_at, updated_at)"),
         ) -> KnowledgeArticleListResponseSchema:
             """Получает опубликованные статьи."""
+            # Валидация sort_by
+            allowed_sort_fields = {"published_at", "view_count", "created_at", "updated_at"}
+            if sort_by not in allowed_sort_fields:
+                sort_by = "published_at"
+
             pagination = PaginationParamsSchema(
                 page=page,
                 page_size=page_size,
-                sort_by="published_at",
+                sort_by=sort_by,
                 sort_desc=True,
             )
 
             tag_slugs = tags.split(",") if tags else None
             category_ids = [UUID(c.strip()) for c in categories.split(",") if c.strip()] if categories else None
+            author_uuid = UUID(author_id) if author_id else None
 
             articles, total = await service.get_published_articles(
                 pagination=pagination,
                 category_ids=category_ids,
                 tag_slugs=tag_slugs,
                 featured_only=featured,
+                author_id=author_uuid,
             )
 
             schemas = [_article_to_list_schema(article) for article in articles]

@@ -15,9 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.v1 import (
+    KnowledgeArticleChunkModel,
     KnowledgeArticleModel,
     KnowledgeArticleTagModel,
     KnowledgeCategoryModel,
+    KnowledgeChatMessageModel,
+    KnowledgeChatSessionModel,
     KnowledgeTagModel,
 )
 from app.repository.base import BaseRepository
@@ -314,6 +317,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         category_ids: list[UUID] | None = None,
         tag_slugs: list[str] | None = None,
         featured_only: bool = False,
+        author_id: UUID | None = None,
     ) -> tuple[list[KnowledgeArticleModel], int]:
         """Получить опубликованные статьи с пагинацией и фильтрами.
 
@@ -322,6 +326,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
             category_ids: Фильтр по категориям (статья должна принадлежать хотя бы одной).
             tag_slugs: Фильтр по тегам (статья должна иметь хотя бы один из тегов).
             featured_only: Только закреплённые статьи.
+            author_id: Фильтр по автору.
 
         Returns:
             Кортеж (список статей, общее количество).
@@ -341,6 +346,9 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
 
         if featured_only:
             stmt = stmt.where(KnowledgeArticleModel.is_featured == True)  # noqa: E712
+
+        if author_id:
+            stmt = stmt.where(KnowledgeArticleModel.author_id == author_id)
 
         if tag_slugs:
             # Подзапрос для фильтрации по тегам
@@ -711,3 +719,323 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         )
         result = await self.session.execute(stmt)
         return result.scalar() or 0
+
+
+class KnowledgeChatSessionRepository(BaseRepository[KnowledgeChatSessionModel]):
+    """Репозиторий для операций с сессиями чата базы знаний.
+
+    Предоставляет методы для работы с чат-сессиями и их сообщениями.
+    """
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        cache_backend: CacheBackend | None = None,
+        enable_tracing: bool = False,
+    ):
+        """Инициализация репозитория сессий чата."""
+        super().__init__(session, KnowledgeChatSessionModel, cache_backend, enable_tracing)
+
+    async def get_user_sessions(
+        self,
+        user_id: UUID,
+        limit: int = 20,
+    ) -> list[KnowledgeChatSessionModel]:
+        """Получить сессии чата пользователя.
+
+        Args:
+            user_id: UUID пользователя.
+            limit: Максимальное количество сессий.
+
+        Returns:
+            Список сессий, отсортированных по дате обновления.
+        """
+        stmt = (
+            select(KnowledgeChatSessionModel)
+            .where(KnowledgeChatSessionModel.user_id == user_id)
+            .order_by(KnowledgeChatSessionModel.updated_at.desc())
+            .limit(limit)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_by_session_key(
+        self,
+        session_key: str,
+    ) -> KnowledgeChatSessionModel | None:
+        """Получить сессию по ключу (для анонимных пользователей).
+
+        Args:
+            session_key: Ключ сессии.
+
+        Returns:
+            Сессия или None.
+        """
+        stmt = (
+            select(KnowledgeChatSessionModel)
+            .where(KnowledgeChatSessionModel.session_key == session_key)
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_sessions_by_key(
+        self,
+        session_key: str,
+        limit: int = 20,
+    ) -> list[KnowledgeChatSessionModel]:
+        """Получить сессии чата по ключу (для анонимных).
+
+        Args:
+            session_key: Ключ сессии.
+            limit: Максимальное количество сессий.
+
+        Returns:
+            Список сессий.
+        """
+        stmt = (
+            select(KnowledgeChatSessionModel)
+            .where(KnowledgeChatSessionModel.session_key == session_key)
+            .order_by(KnowledgeChatSessionModel.updated_at.desc())
+            .limit(limit)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_with_messages(
+        self,
+        session_id: UUID,
+    ) -> KnowledgeChatSessionModel | None:
+        """Получить сессию с сообщениями.
+
+        Args:
+            session_id: UUID сессии.
+
+        Returns:
+            Сессия с загруженными сообщениями или None.
+        """
+        stmt = (
+            select(KnowledgeChatSessionModel)
+            .where(KnowledgeChatSessionModel.id == session_id)
+            .options(selectinload(KnowledgeChatSessionModel.messages))
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+class KnowledgeChatMessageRepository(BaseRepository[KnowledgeChatMessageModel]):
+    """Репозиторий для операций с сообщениями чата базы знаний."""
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        cache_backend: CacheBackend | None = None,
+        enable_tracing: bool = False,
+    ):
+        """Инициализация репозитория сообщений чата."""
+        super().__init__(session, KnowledgeChatMessageModel, cache_backend, enable_tracing)
+
+    async def get_session_messages(
+        self,
+        session_id: UUID,
+        limit: int = 50,
+    ) -> list[KnowledgeChatMessageModel]:
+        """Получить сообщения сессии.
+
+        Args:
+            session_id: UUID сессии.
+            limit: Максимальное количество сообщений.
+
+        Returns:
+            Список сообщений в хронологическом порядке.
+        """
+        stmt = (
+            select(KnowledgeChatMessageModel)
+            .where(KnowledgeChatMessageModel.session_id == session_id)
+            .order_by(KnowledgeChatMessageModel.created_at.asc())
+            .limit(limit)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+
+class KnowledgeArticleChunkRepository(BaseRepository[KnowledgeArticleChunkModel]):
+    """Репозиторий для операций с чанками статей базы знаний.
+
+    Предоставляет методы для работы с фрагментами статей,
+    включая семантический поиск по чанкам.
+
+    Специфичные методы:
+    - get_article_chunks() - получение всех чанков статьи
+    - delete_article_chunks() - удаление всех чанков статьи
+    - semantic_search_chunks() - семантический поиск по чанкам
+    - update_chunk_embedding() - обновление эмбеддинга чанка
+    """
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        cache_backend: CacheBackend | None = None,
+        enable_tracing: bool = False,
+    ):
+        """Инициализация репозитория чанков."""
+        super().__init__(session, KnowledgeArticleChunkModel, cache_backend, enable_tracing)
+
+    async def get_article_chunks(
+        self,
+        article_id: UUID,
+    ) -> list[KnowledgeArticleChunkModel]:
+        """Получить все чанки статьи, отсортированные по индексу.
+
+        Args:
+            article_id: UUID статьи.
+
+        Returns:
+            Список чанков в порядке индекса.
+        """
+        stmt = (
+            select(KnowledgeArticleChunkModel)
+            .where(KnowledgeArticleChunkModel.article_id == article_id)
+            .order_by(KnowledgeArticleChunkModel.chunk_index)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def delete_article_chunks(self, article_id: UUID) -> int:
+        """Удалить все чанки статьи.
+
+        Args:
+            article_id: UUID статьи.
+
+        Returns:
+            Количество удалённых чанков.
+        """
+        from sqlalchemy import delete
+
+        stmt = delete(KnowledgeArticleChunkModel).where(
+            KnowledgeArticleChunkModel.article_id == article_id
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+
+        return result.rowcount or 0
+
+    async def update_chunk_embedding(
+        self,
+        chunk_id: UUID,
+        embedding: list[float],
+    ) -> None:
+        """Обновить эмбеддинг чанка.
+
+        Args:
+            chunk_id: UUID чанка.
+            embedding: Вектор эмбеддинга.
+        """
+        chunk = await self.get_item_by_id(chunk_id)
+        if chunk:
+            chunk.embedding = embedding
+            await self.session.flush()
+
+    async def semantic_search_chunks(
+        self,
+        embedding: list[float],
+        limit: int = 10,
+        category_id: UUID | None = None,
+    ) -> list[dict[str, Any]]:
+        """Семантический поиск по чанкам статей.
+
+        Возвращает чанки с информацией о родительской статье.
+
+        Args:
+            embedding: Вектор запроса.
+            limit: Максимальное количество результатов.
+            category_id: Фильтр по категории статьи.
+
+        Returns:
+            Список словарей с чанком, статьёй и расстоянием.
+        """
+        from sqlalchemy import text as sql_text
+
+        # Преобразуем embedding в строку для SQL
+        embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
+
+        # Базовые условия
+        where_clauses = ["c.embedding IS NOT NULL", "a.is_published = true"]
+        if category_id:
+            where_clauses.append(f"a.category_id = '{category_id}'")
+
+        where_sql = " AND ".join(where_clauses)
+
+        # Запрос с JOIN на статьи для фильтрации по published
+        search_sql = sql_text(f"""
+            SELECT
+                c.id as chunk_id,
+                c.article_id,
+                c.chunk_index,
+                c.title as chunk_title,
+                c.content,
+                c.token_count,
+                a.title as article_title,
+                a.slug as article_slug,
+                c.embedding <=> '{embedding_str}'::vector as distance
+            FROM knowledge_article_chunks c
+            JOIN knowledge_articles a ON c.article_id = a.id
+            WHERE {where_sql}
+            ORDER BY distance
+            LIMIT {limit}
+        """)
+
+        result = await self.session.execute(search_sql)
+        rows = result.all()
+
+        return [
+            {
+                "chunk_id": row[0],
+                "article_id": row[1],
+                "chunk_index": row[2],
+                "chunk_title": row[3],
+                "content": row[4],
+                "token_count": row[5],
+                "article_title": row[6],
+                "article_slug": row[7],
+                "distance": row[8],
+            }
+            for row in rows
+        ]
+
+    async def count_chunks_with_embeddings(self) -> int:
+        """Подсчитать количество чанков с эмбеддингами.
+
+        Returns:
+            Количество чанков с эмбеддингами.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(KnowledgeArticleChunkModel)
+            .where(KnowledgeArticleChunkModel.embedding.isnot(None))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+
+    async def clear_all_chunk_embeddings(self) -> int:
+        """Сбросить все эмбеддинги чанков.
+
+        Returns:
+            Количество обновлённых чанков.
+        """
+        from sqlalchemy import update
+
+        stmt = (
+            update(KnowledgeArticleChunkModel)
+            .where(KnowledgeArticleChunkModel.embedding.isnot(None))
+            .values(embedding=None)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+
+        return result.rowcount or 0

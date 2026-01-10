@@ -24,13 +24,16 @@ from app.core.integrations.ai import OpenRouterClient
 from app.core.security.encryption import get_encryption_service
 from app.core.settings import settings
 from app.core.utils import generate_slug
+from app.core.utils.chunking import chunk_article
 from app.models.v1 import (
+    KnowledgeArticleChunkModel,
     KnowledgeArticleModel,
     KnowledgeCategoryModel,
     KnowledgeTagModel,
     SystemSettingsKeys,
 )
 from app.repository.v1.knowledge import (
+    KnowledgeArticleChunkRepository,
     KnowledgeArticleRepository,
     KnowledgeCategoryRepository,
     KnowledgeTagRepository,
@@ -85,6 +88,7 @@ class KnowledgeService(BaseService):
         self.article_repository = KnowledgeArticleRepository(session)
         self.category_repository = KnowledgeCategoryRepository(session)
         self.tag_repository = KnowledgeTagRepository(session)
+        self.chunk_repository = KnowledgeArticleChunkRepository(session)
         self.system_settings_repository = SystemSettingsRepository(session)
         self._ai_settings = settings.ai
         self._encryption = get_encryption_service()
@@ -198,6 +202,7 @@ class KnowledgeService(BaseService):
         category_ids: list[UUID] | None = None,
         tag_slugs: list[str] | None = None,
         featured_only: bool = False,
+        author_id: UUID | None = None,
     ) -> tuple[list[KnowledgeArticleModel], int]:
         """
         Получает опубликованные статьи с фильтрами и пагинацией.
@@ -207,6 +212,7 @@ class KnowledgeService(BaseService):
             category_ids: Фильтр по категориям (статья должна принадлежать хотя бы одной)
             tag_slugs: Фильтр по тегам
             featured_only: Только закреплённые статьи
+            author_id: Фильтр по автору
 
         Returns:
             Кортеж (список статей, общее количество)
@@ -216,6 +222,7 @@ class KnowledgeService(BaseService):
             category_ids=category_ids,
             tag_slugs=tag_slugs,
             featured_only=featured_only,
+            author_id=author_id,
         )
 
         self.logger.debug(
@@ -836,7 +843,7 @@ class KnowledgeService(BaseService):
         Получает категории с количеством опубликованных статей.
 
         Returns:
-            Список словарей с категориями и articles_count
+            Список словарей с катег��риями и articles_count
         """
         return await self.category_repository.get_with_articles_count()
 
@@ -1092,4 +1099,608 @@ class KnowledgeService(BaseService):
 
         self.logger.info("Удалён тег: %s (id=%s)", tag.name, tag_id)
 
+        return result
+
+    # ==================== ЧАНКИНГ СТАТЕЙ ====================
+
+    async def create_article_chunks(
+        self,
+        article_id: UUID,
+        chunk_size: int = 500,
+        chunk_overlap: int = 50,
+    ) -> list[KnowledgeArticleChunkModel]:
+        """
+        Разбивает статью на чанки и сохраняет в БД.
+
+        Args:
+            article_id: UUID статьи
+            chunk_size: Размер чанка в токенах
+            chunk_overlap: Перекрытие чанков в токенах
+
+        Returns:
+            Список созданных чанков
+        """
+        article = await self.get_article_by_id(article_id)
+
+        # Удаляем старые чанки
+        await self.chunk_repository.delete_article_chunks(article_id)
+
+        # Разбиваем статью на чанки
+        text_chunks = chunk_article(
+            content=article.content,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+
+        if not text_chunks:
+            self.logger.warning("Статья %s не содержит контента для чанкинга", article_id)
+            return []
+
+        # Создаём записи в БД
+        chunks: list[KnowledgeArticleChunkModel] = []
+        for text_chunk in text_chunks:
+            chunk = await self.chunk_repository.create_item({
+                "article_id": article_id,
+                "chunk_index": text_chunk.index,
+                "title": text_chunk.title,
+                "content": text_chunk.content,
+                "token_count": text_chunk.token_count,
+            })
+            chunks.append(chunk)
+
+        await self.session.commit()
+
+        self.logger.info(
+            "Создано %d чанков для статьи: %s",
+            len(chunks),
+            article.title,
+        )
+
+        return chunks
+
+    async def index_article_chunks(
+        self,
+        article_id: UUID,
+        api_key: str,
+        model: str = "openai/text-embedding-3-small",
+    ) -> int:
+        """
+        Создаёт эмбеддинги для всех чанков статьи.
+
+        Args:
+            article_id: UUID статьи
+            api_key: API ключ OpenRouter
+            model: Модель для эмбеддингов
+
+        Returns:
+            Количество проиндексированных чанков
+        """
+        chunks = await self.chunk_repository.get_article_chunks(article_id)
+
+        if not chunks:
+            self.logger.warning("Статья %s не имеет чанков для индексации", article_id)
+            return 0
+
+        # Собираем тексты для batch обработки
+        texts = []
+        for chunk in chunks:
+            # Добавляем заголовок секции к контенту для лучшего контекста
+            if chunk.title:
+                texts.append(f"{chunk.title}\n\n{chunk.content}")
+            else:
+                texts.append(chunk.content)
+
+        # Создаём эмбеддинги
+        client = self._get_openrouter_client(api_key)
+        embeddings = await client.create_embeddings_batch(texts=texts, model=model)
+
+        # Сохраняем эмбеддинги
+        for chunk, embedding in zip(chunks, embeddings, strict=True):
+            await self.chunk_repository.update_chunk_embedding(chunk.id, embedding)
+
+        await self.session.commit()
+
+        self.logger.info(
+            "Проиндексировано %d чанков для статьи %s",
+            len(chunks),
+            article_id,
+        )
+
+        return len(chunks)
+
+    async def semantic_search_chunks(
+        self,
+        query: str,
+        limit: int = 10,
+        category_id: UUID | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Семантический поиск по чанкам статей.
+
+        Возвращает наиболее релевантные фрагменты статей.
+
+        Args:
+            query: Поисковый запрос
+            limit: Максимальное количество результатов
+            category_id: Фильтр по категории
+
+        Returns:
+            Список словарей с чанками и информацией о статьях
+        """
+        if not query or len(query.strip()) < 2:
+            raise ValidationError(
+                detail="Поисковый запрос должен содержать минимум 2 символа",
+                field="query",
+            )
+
+        api_key = await self._get_system_api_key()
+        if not api_key:
+            raise ValidationError(
+                detail="Семантический поиск недоступен: API ключ не настроен",
+                field="api_key",
+            )
+
+        model = await self._get_embedding_model()
+
+        # Создаём эмбеддинг запроса
+        client = self._get_openrouter_client(api_key)
+        query_embedding = await client.create_embedding(text=query.strip(), model=model)
+
+        # Ищем похожие чанки
+        results = await self.chunk_repository.semantic_search_chunks(
+            embedding=query_embedding,
+            limit=limit,
+            category_id=category_id,
+        )
+
+        self.logger.info(
+            "Семантический поиск по чанкам '%s': найдено %d результатов",
+            query,
+            len(results),
+        )
+
+        return results
+
+    # ==================== RAG ЧАТ ====================
+
+    async def extract_search_query(
+        self,
+        messages: list[dict[str, str]],
+        api_key: str,
+        llm_model: str,
+    ) -> str | None:
+        """
+        Извлекает оптимальный поисковый запрос из истории диалога с помощью LLM.
+
+        LLM анализирует диалог и формирует запрос для семантического поиска,
+        учитывая контекст предыдущих сообщений и уточняющие вопросы.
+
+        Args:
+            messages: История сообщений [{role: 'user'|'assistant', content: '...'}]
+            api_key: API ключ OpenRouter
+            llm_model: Модель LLM для анализа
+
+        Returns:
+            Оптимальный поисковый запрос или None если поиск не нужен
+        """
+        if not messages:
+            return None
+
+        # Берём только последние сообщения для экономии токенов
+        recent_messages = messages[-6:]
+
+        # Формируем историю для промпта
+        history = "\n".join(
+            f"{msg['role'].upper()}: {msg['content']}"
+            for msg in recent_messages
+        )
+
+        prompt = f"""Проанализируй историю диалога и определи, нужен ли поиск по базе знаний.
+
+ИСТОРИЯ ДИАЛОГА:
+{history}
+
+ЗАДАЧА:
+1. Если последнее сообщение пользователя - приветствие или общая фраза (привет, как дела, спасибо) - ответь: NONE
+2. Если пользователь задаёт уточняющий вопрос (дальше, ещё, продолжи, подробнее) - сформируй запрос на основе предыдущего контекста диалога
+3. Если пользователь задаёт новый вопрос - извлеки ключевые слова для поиска
+
+ВАЖНО: Верни ТОЛЬКО поисковый запрос (3-10 слов) или слово NONE. Без объяснений.
+
+ОТВЕТ:"""
+
+        client = self._get_openrouter_client(api_key)
+
+        try:
+            response = await client.complete(
+                prompt=prompt,
+                model=llm_model,
+                max_tokens=50,
+                temperature=0.1,
+            )
+
+            result = response.strip()
+
+            if result.upper() == "NONE" or len(result) < 3:
+                return None
+
+            self.logger.debug("LLM извлёк поисковый запрос: %s", result)
+            return result
+
+        except Exception as e:
+            self.logger.warning("Ошибка извлечения запроса через LLM: %s", e)
+            # Fallback: используем последнее сообщение пользователя
+            for msg in reversed(messages):
+                if msg.get("role") == "user":
+                    return msg.get("content", "")[:200]
+            return None
+
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        use_context: bool = True,
+    ) -> dict[str, Any]:
+        """
+        RAG-чат с контекстом из базы знаний.
+
+        Анализирует диалог, извлекает поисковый запрос через LLM,
+        ищет релевантные чанки и генерирует ответ.
+
+        Поддерживает:
+        - Динамическую подгрузку контекста (LLM может запросить больше информации)
+        - Уточняющие вопросы (AI предлагает варианты для уточнения)
+
+        Args:
+            messages: История сообщений [{role: 'user'|'assistant', content: '...'}]
+            use_context: Использовать контекст из базы знаний
+
+        Returns:
+            Словарь с ответом, источниками, моделью и метаданными
+
+        Raises:
+            ValidationError: Если API ключ не настроен или нет сообщений
+        """
+        if not messages:
+            raise ValidationError(
+                detail="Сообщения не указаны",
+                field="messages",
+            )
+
+        # Получаем API ключ и модель
+        api_key = await self._get_system_api_key()
+        if not api_key:
+            raise ValidationError(
+                detail="API ключ не настроен. Обратитесь к администратору.",
+                field="api_key",
+            )
+
+        llm_model = await self.system_settings_repository.get_value(
+            SystemSettingsKeys.AI_LLM_MODEL,
+            "anthropic/claude-3-haiku",
+        )
+
+        sources: list[dict[str, Any]] = []
+        context_text = ""
+        additional_context_loaded = False
+        needs_clarification = False
+        clarification_options: list[str] = []
+
+        # Извлекаем поисковый запрос через LLM
+        if use_context:
+            search_query = await self.extract_search_query(messages, api_key, llm_model)
+
+            if search_query:
+                self.logger.info("Поисковый запрос: %s", search_query)
+
+                try:
+                    # Поиск по чанкам
+                    chunks = await self.semantic_search_chunks(
+                        query=search_query,
+                        limit=10,
+                    )
+
+                    if chunks:
+                        # Группируем чанки по статьям
+                        context_parts = []
+                        seen_articles: dict[str, int] = {}
+
+                        for chunk in chunks:
+                            article_id = str(chunk["article_id"])
+
+                            if article_id not in seen_articles:
+                                idx = len(seen_articles) + 1
+                                seen_articles[article_id] = idx
+                                sources.append({
+                                    "id": article_id,
+                                    "title": chunk["article_title"],
+                                    "slug": chunk["article_slug"],
+                                })
+
+                            idx = seen_articles[article_id]
+                            chunk_title = (
+                                chunk.get("chunk_title") or chunk["article_title"]
+                            )
+                            context_parts.append(
+                                f"[Статья {idx}] ### {chunk_title}\n{chunk['content']}"
+                            )
+
+                        context_text = "\n\n---\n\n".join(context_parts)
+                        self.logger.info(
+                            "Найдено %d чанков из %d статей",
+                            len(chunks),
+                            len(seen_articles),
+                        )
+
+                except Exception as e:
+                    self.logger.warning("Семантический поиск недоступен: %s", e)
+
+        # Формируем системный промпт
+        system_prompt = self._build_chat_system_prompt(context_text, sources)
+
+        # Формируем сообщения для LLM
+        llm_messages = [{"role": "system", "content": system_prompt}]
+        for msg in messages[-10:]:
+            llm_messages.append({"role": msg["role"], "content": msg["content"]})
+
+        # Генерируем ответ
+        client = self._get_openrouter_client(api_key)
+        response = await client.chat(
+            messages=llm_messages,
+            model=llm_model,
+            temperature=0.7,
+            max_tokens=4000,
+        )
+
+        # Парсим ответ на наличие запросов доп. контекста и уточнений
+        parsed = self._parse_chat_response_extended(response.content, sources)
+        content = parsed["content"]
+        used_sources = parsed["sources"]
+
+        # Проверяем, нужен ли дополнительный контекст
+        if parsed.get("needs_more_context") and use_context:
+            additional_query = parsed.get("additional_query", "")
+            if additional_query:
+                self.logger.info(
+                    "LLM запросил дополнительный контекст: %s", additional_query
+                )
+                try:
+                    # Загружаем дополнительные чанки
+                    extra_chunks = await self.semantic_search_chunks(
+                        query=additional_query,
+                        limit=5,
+                    )
+
+                    if extra_chunks:
+                        additional_context_loaded = True
+
+                        # Добавляем новые источники
+                        extra_context_parts = []
+                        for chunk in extra_chunks:
+                            article_id = str(chunk["article_id"])
+
+                            if article_id not in {str(s["id"]) for s in sources}:
+                                sources.append({
+                                    "id": article_id,
+                                    "title": chunk["article_title"],
+                                    "slug": chunk["article_slug"],
+                                })
+
+                            chunk_title = (
+                                chunk.get("chunk_title") or chunk["article_title"]
+                            )
+                            extra_context_parts.append(
+                                f"### {chunk_title}\n{chunk['content']}"
+                            )
+
+                        # Генерируем дополненный ответ
+                        extra_context = "\n\n---\n\n".join(extra_context_parts)
+                        llm_messages.append({
+                            "role": "assistant",
+                            "content": content,
+                        })
+                        llm_messages.append({
+                            "role": "user",
+                            "content": (
+                                f"Вот дополнительная информация:\n\n{extra_context}\n\n"
+                                "Пожалуйста, дополни свой ответ используя эту информацию."
+                            ),
+                        })
+
+                        response = await client.chat(
+                            messages=llm_messages,
+                            model=llm_model,
+                            temperature=0.7,
+                            max_tokens=4000,
+                        )
+
+                        parsed = self._parse_chat_response_extended(
+                            response.content, sources
+                        )
+                        content = parsed["content"]
+                        used_sources = parsed["sources"]
+
+                        self.logger.info("Ответ дополнен с учётом нового контекста")
+
+                except Exception as e:
+                    self.logger.warning("Ошибка загрузки доп. контекста: %s", e)
+
+        # Проверяем, нужно ли уточнение от пользователя
+        if parsed.get("needs_clarification"):
+            needs_clarification = True
+            clarification_options = parsed.get("clarification_options", [])
+            self.logger.info(
+                "LLM запросил уточнение. Варианты: %s", clarification_options
+            )
+
+        return {
+            "content": content,
+            "sources": used_sources,
+            "model": response.model,
+            "needs_clarification": needs_clarification,
+            "clarification_options": clarification_options,
+            "additional_context_loaded": additional_context_loaded,
+        }
+
+    def _build_chat_system_prompt(
+        self,
+        context_text: str,
+        sources: list[dict[str, Any]],
+    ) -> str:
+        """Формирует системный промпт для чата."""
+        prompt = """Ты — AI-ассистент базы знаний. Твоя задача — помогать пользователям находить информацию и отвечать на вопросы.
+
+Правила:
+1. Отвечай на русском языке
+2. Используй информацию из предоставленного контекста для ответов
+3. Если в контексте есть только частичная информация — дай ответ на основе того что есть
+4. Если в контексте нет релевантной информации — честно скажи об этом
+5. Давай развёрнутые, полные ответы. Не обрывай мысль на середине
+6. Если пользователь приветствует тебя, поприветствуй в ответ и предложи помощь
+7. ВАЖНО: Всегда завершай свои ответы полностью"""
+
+        if context_text:
+            prompt += f"""
+
+## Контекст из базы знаний:
+
+{context_text}
+
+---
+
+ПРАВИЛА ИСПОЛЬЗОВАНИЯ МАРКЕРОВ:
+
+1. ИСТОЧНИКИ - в САМОМ КОНЦЕ ответа добавь: [USED: 1, 2] с номерами использованных статей
+   - НЕ указывай для приветствий или общих фраз
+   - Если не использовал статьи — НЕ добавляй [USED:]
+
+2. ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ - если тебе не хватает контекста для полного ответа:
+   - Добавь в конце: [NEED_MORE: поисковый запрос для получения доп. информации]
+   - Пример: [NEED_MORE: настройка Docker volumes]
+   - Используй ТОЛЬКО когда действительно нужна конкретная информация
+
+3. УТОЧНЯЮЩИЕ ВОПРОСЫ - если вопрос пользователя неоднозначен:
+   - Добавь в конце: [CLARIFY: вариант1 | вариант2 | вариант3]
+   - Пример: [CLARIFY: Docker на Windows | Docker на Linux | Docker на macOS]
+   - Предлагай 2-4 конкретных варианта для уточнения
+   - Используй ТОЛЬКО когда вопрос действительно требует уточнения"""
+        else:
+            prompt += """
+
+ОСОБЫЕ ВОЗМОЖНОСТИ:
+
+1. Если вопрос пользователя неоднозначен и требует уточнения:
+   - Добавь в конце: [CLARIFY: вариант1 | вариант2 | вариант3]
+   - Предлагай 2-4 конкретных варианта для уточнения
+
+2. Если тебе нужна дополнительная информация из базы знаний:
+   - Добавь в конце: [NEED_MORE: поисковый запрос]"""
+
+        return prompt
+
+    def _parse_chat_response(
+        self,
+        content: str,
+        sources: list[dict[str, Any]],
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """Парсит ответ LLM и извлекает использованные источники."""
+        import re
+
+        used_sources: list[dict[str, Any]] = []
+
+        # Ищем маркер [USED: ...]
+        used_match = re.search(r"\[USED:\s*([^\]]+)\]", content, re.IGNORECASE)
+        if used_match:
+            used_str = used_match.group(1).strip()
+            content = re.sub(r"\s*\[USED:\s*[^\]]+\]\s*", "", content).strip()
+
+            # Парсим номера источников
+            source_nums = [
+                int(n.strip())
+                for n in used_str.split(",")
+                if n.strip().isdigit()
+            ]
+            for num in source_nums:
+                if 1 <= num <= len(sources):
+                    used_sources.append(sources[num - 1])
+
+        # Убираем старый маркер [SOURCES:]
+        content = re.sub(r"\s*\[SOURCES:\s*[^\]]*\]\s*", "", content).strip()
+
+        return content, used_sources
+
+    def _parse_chat_response_extended(
+        self,
+        content: str,
+        sources: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """
+        Парсит ответ LLM с поддержкой расширенных маркеров.
+
+        Поддерживаемые маркеры:
+        - [USED: 1, 2] - использованные источники
+        - [NEED_MORE: запрос] - запрос дополнительного контекста
+        - [CLARIFY: вариант1 | вариант2 | вариант3] - уточняющие вопросы
+
+        Args:
+            content: Текст ответа LLM
+            sources: Список доступных источников
+
+        Returns:
+            Словарь с разобранными данными
+        """
+        import re
+
+        result: dict[str, Any] = {
+            "content": content,
+            "sources": [],
+            "needs_more_context": False,
+            "additional_query": "",
+            "needs_clarification": False,
+            "clarification_options": [],
+        }
+
+        # Парсим [USED: ...]
+        used_match = re.search(r"\[USED:\s*([^\]]+)\]", content, re.IGNORECASE)
+        if used_match:
+            used_str = used_match.group(1).strip()
+            content = re.sub(r"\s*\[USED:\s*[^\]]+\]\s*", "", content).strip()
+
+            source_nums = [
+                int(n.strip())
+                for n in used_str.split(",")
+                if n.strip().isdigit()
+            ]
+            for num in source_nums:
+                if 1 <= num <= len(sources):
+                    result["sources"].append(sources[num - 1])
+
+        # Парсим [NEED_MORE: запрос]
+        need_more_match = re.search(
+            r"\[NEED_MORE:\s*([^\]]+)\]", content, re.IGNORECASE
+        )
+        if need_more_match:
+            result["needs_more_context"] = True
+            result["additional_query"] = need_more_match.group(1).strip()
+            content = re.sub(
+                r"\s*\[NEED_MORE:\s*[^\]]+\]\s*", "", content
+            ).strip()
+
+        # Парсим [CLARIFY: вариант1 | вариант2 | вариант3]
+        clarify_match = re.search(
+            r"\[CLARIFY:\s*([^\]]+)\]", content, re.IGNORECASE
+        )
+        if clarify_match:
+            result["needs_clarification"] = True
+            options_str = clarify_match.group(1).strip()
+            result["clarification_options"] = [
+                opt.strip()
+                for opt in options_str.split("|")
+                if opt.strip()
+            ]
+            content = re.sub(r"\s*\[CLARIFY:\s*[^\]]+\]\s*", "", content).strip()
+
+        # Убираем старый маркер [SOURCES:]
+        content = re.sub(r"\s*\[SOURCES:\s*[^\]]*\]\s*", "", content).strip()
+
+        result["content"] = content
         return result

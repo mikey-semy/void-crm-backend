@@ -316,6 +316,13 @@ class KnowledgeArticleModel(BaseModel):
         back_populates="articles",
     )
 
+    chunks: Mapped[list["KnowledgeArticleChunkModel"]] = relationship(
+        "KnowledgeArticleChunkModel",
+        back_populates="article",
+        order_by="KnowledgeArticleChunkModel.chunk_index",
+        cascade="all, delete-orphan",
+    )
+
     @property
     def is_draft(self) -> bool:
         """Проверяет, является ли статья черновиком."""
@@ -368,3 +375,185 @@ class KnowledgeArticleTagModel(BaseModel):
     def __repr__(self) -> str:
         """Строковое представление модели для отладки."""
         return f"<KnowledgeArticleTagModel(article_id={self.article_id}, tag_id={self.tag_id})>"
+
+
+class KnowledgeArticleChunkModel(BaseModel):
+    """
+    Модель чанка (фрагмента) статьи для гранулярного семантического поиска.
+
+    Статья разбивается на логические части (по заголовкам, параграфам),
+    каждый чанк имеет свой эмбеддинг для точного поиска.
+
+    Attributes:
+        article_id (UUID): ID родительской статьи.
+        chunk_index (int): Порядковый номер чанка в статье.
+        title (str | None): Заголовок секции (если есть).
+        content (str): Содержимое чанка.
+        embedding (list[float] | None): Вектор эмбеддинга для поиска.
+        token_count (int): Количество токенов в чанке.
+    """
+
+    __tablename__ = "knowledge_article_chunks"
+
+    article_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_articles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="ID родительской статьи",
+    )
+
+    chunk_index: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Порядковый номер чанка в статье",
+    )
+
+    title: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Заголовок секции (если есть)",
+    )
+
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Содержимое чанка",
+    )
+
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(1536),
+        nullable=True,
+        comment="Вектор эмбеддинга для семантического поиска",
+    )
+
+    token_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Количество токенов в чанке",
+    )
+
+    # Связи
+    article: Mapped["KnowledgeArticleModel"] = relationship(
+        "KnowledgeArticleModel",
+        back_populates="chunks",
+    )
+
+    def __repr__(self) -> str:
+        """Строковое представление модели для отладки."""
+        return f"<KnowledgeArticleChunkModel(article_id={self.article_id}, index={self.chunk_index})>"
+
+
+class KnowledgeChatSessionModel(BaseModel):
+    """
+    Модель сессии чата с AI-ассистентом базы знаний.
+
+    Хранит информацию о диалоге пользователя с AI, включая заголовок
+    и связь с пользователем (опционально для анонимных).
+
+    Attributes:
+        title (str): Заголовок сессии (генерируется из первого сообщения).
+        user_id (UUID | None): ID пользователя (null для анонимных).
+        session_key (str | None): Ключ сессии для анонимных пользователей.
+        messages (List[KnowledgeChatMessageModel]): Сообщения в сессии.
+    """
+
+    __tablename__ = "knowledge_chat_sessions"
+
+    title: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+        default="Новый чат",
+        comment="Заголовок сессии",
+    )
+
+    user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment="ID пользователя (null для анонимных)",
+    )
+
+    session_key: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment="Ключ сессии для анонимных пользователей",
+    )
+
+    # Связи
+    user: Mapped["UserModel | None"] = relationship(
+        "UserModel",
+        back_populates="knowledge_chat_sessions",
+    )
+
+    messages: Mapped[list["KnowledgeChatMessageModel"]] = relationship(
+        "KnowledgeChatMessageModel",
+        back_populates="session",
+        order_by="KnowledgeChatMessageModel.created_at",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self) -> str:
+        """Строковое представление модели для отладки."""
+        return f"<KnowledgeChatSessionModel(title={self.title[:30]}...)>"
+
+
+class KnowledgeChatMessageModel(BaseModel):
+    """
+    Модель сообщения в чате с AI-ассистентом.
+
+    Хранит отдельное сообщение (пользователя или ассистента)
+    с опциональными ссылками на источники.
+
+    Attributes:
+        session_id (UUID): ID сессии чата.
+        role (str): Роль: 'user' или 'assistant'.
+        content (str): Содержимое сообщения.
+        sources (str | None): JSON со списком источников (для ответов ассистента).
+        model (str | None): Использованная LLM модель.
+    """
+
+    __tablename__ = "knowledge_chat_messages"
+
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="ID сессии чата",
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        comment="Роль: user или assistant",
+    )
+
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Содержимое сообщения",
+    )
+
+    sources: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="JSON со списком источников",
+    )
+
+    model: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Использованная LLM модель",
+    )
+
+    # Связи
+    session: Mapped["KnowledgeChatSessionModel"] = relationship(
+        "KnowledgeChatSessionModel",
+        back_populates="messages",
+    )
+
+    def __repr__(self) -> str:
+        """Строковое представление модели для отладки."""
+        return f"<KnowledgeChatMessageModel(role={self.role}, content={self.content[:30]}...)>"

@@ -7,6 +7,9 @@ from .base import (
     KnowledgeAuthorSchema,
     KnowledgeCategoryBaseSchema,
     KnowledgeCategoryListItemSchema,
+    KnowledgeChatDataSchema,
+    KnowledgeChatMessageSchema,
+    KnowledgeChatSourceSchema,
     KnowledgeTagBaseSchema,
     KnowledgeTagListItemSchema,
 )
@@ -15,6 +18,7 @@ from .requests import (
     KnowledgeArticleUpdateSchema,
     KnowledgeCategoryCreateSchema,
     KnowledgeCategoryUpdateSchema,
+    KnowledgeChatRequestSchema,
     KnowledgeGenerateDescriptionSchema,
     KnowledgeSearchQuerySchema,
     KnowledgeTagCreateSchema,
@@ -27,6 +31,7 @@ from .responses import (
     KnowledgeCategoryDeletedSchema,
     KnowledgeCategoryListResponseSchema,
     KnowledgeCategoryResponseSchema,
+    KnowledgeChatResponseSchema,
     KnowledgeGeneratedDescriptionSchema,
     KnowledgeSearchResponseSchema,
     KnowledgeTagDeletedSchema,
@@ -44,6 +49,8 @@ __all__ = [
     "KnowledgeArticleBaseSchema",
     "KnowledgeArticleListItemSchema",
     "KnowledgeArticleDetailSchema",
+    "KnowledgeChatMessageSchema",
+    "KnowledgeChatSourceSchema",
     # Requests
     "KnowledgeCategoryCreateSchema",
     "KnowledgeCategoryUpdateSchema",
@@ -53,6 +60,7 @@ __all__ = [
     "KnowledgeArticleUpdateSchema",
     "KnowledgeSearchQuerySchema",
     "KnowledgeGenerateDescriptionSchema",
+    "KnowledgeChatRequestSchema",
     # Responses
     "KnowledgeCategoryResponseSchema",
     "KnowledgeCategoryListResponseSchema",
@@ -65,4 +73,6 @@ __all__ = [
     "KnowledgeCategoryDeletedSchema",
     "KnowledgeTagDeletedSchema",
     "KnowledgeGeneratedDescriptionSchema",
+    "KnowledgeChatResponseSchema",
+    "KnowledgeChatDataSchema",
 ]

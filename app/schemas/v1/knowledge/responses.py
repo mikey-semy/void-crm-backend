@@ -2,12 +2,17 @@
 
 from pydantic import Field
 
-from app.schemas import BaseResponseSchema, PaginatedDataSchema, PaginatedResponseSchema
+from app.schemas import (
+    BaseResponseSchema,
+    PaginatedDataSchema,
+    PaginatedResponseSchema,
+)
 
 from .base import (
     KnowledgeArticleDetailSchema,
     KnowledgeArticleListItemSchema,
     KnowledgeCategoryListItemSchema,
+    KnowledgeChatDataSchema,
     KnowledgeTagListItemSchema,
 )
 
@@ -94,3 +99,12 @@ class KnowledgeGeneratedDescriptionSchema(BaseResponseSchema):
     """Ответ с сгенерированным описанием."""
 
     data: str = Field(description="Сгенерированное описание")
+
+
+# ==================== ЧАТ ====================
+
+
+class KnowledgeChatResponseSchema(BaseResponseSchema):
+    """Ответ RAG-чата."""
+
+    data: KnowledgeChatDataSchema = Field(description="Данные ответа")

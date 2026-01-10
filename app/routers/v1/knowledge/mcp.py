@@ -5,158 +5,34 @@ MCP API роутер для интеграции базы знаний с Claude
 Поддерживает семантический поиск (RAG) и полный CRUD.
 """
 
+import re
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import Header, Query
-from pydantic import BaseModel, Field
 
 from app.core.dependencies.knowledge import KnowledgeServiceDep
 from app.routers.base import ApiKeyProtectedRouter
 from app.schemas import PaginationParamsSchema
-
-# ==================== MCP SCHEMAS ====================
-
-
-class MCPSearchRequest(BaseModel):
-    """Запрос семантического поиска."""
-
-    query: str = Field(..., min_length=2, max_length=500, description="Поисковый запрос")
-    category_id: UUID | None = Field(None, description="Фильтр по категории")
-    limit: int = Field(10, ge=1, le=50, description="Максимум результатов")
-    use_semantic: bool = Field(True, description="Использовать семантический поиск (RAG)")
-
-
-class MCPArticleSnippet(BaseModel):
-    """Краткая информация о статье для MCP."""
-
-    id: UUID
-    title: str
-    slug: str
-    description: str | None
-    category_name: str | None
-    tags: list[str]
-    relevance_score: float | None = None
-
-
-class MCPSearchResponse(BaseModel):
-    """Ответ семантического поиска."""
-
-    success: bool = True
-    query: str
-    total: int
-    articles: list[MCPArticleSnippet]
-
-
-class MCPArticleContent(BaseModel):
-    """Полный контент статьи для MCP."""
-
-    id: UUID
-    title: str
-    slug: str
-    description: str | None
-    content: str
-    category_name: str | None
-    tags: list[str]
-    author: str
-    created_at: str
-    updated_at: str
-
-
-class MCPArticleResponse(BaseModel):
-    """Ответ с полным контентом статьи."""
-
-    success: bool = True
-    article: MCPArticleContent
-
-
-class MCPCategoryItem(BaseModel):
-    """Категория для MCP."""
-
-    id: UUID
-    name: str
-    slug: str
-    description: str | None
-    icon: str | None
-    articles_count: int
-
-
-class MCPCategoriesResponse(BaseModel):
-    """Список категорий."""
-
-    success: bool = True
-    categories: list[MCPCategoryItem]
-
-
-class MCPTagItem(BaseModel):
-    """Тег для MCP."""
-
-    id: UUID
-    name: str
-    slug: str
-    articles_count: int
-
-
-class MCPTagsResponse(BaseModel):
-    """Список тегов."""
-
-    success: bool = True
-    tags: list[MCPTagItem]
-
-
-class MCPSnippetItem(BaseModel):
-    """Сниппет кода из статьи."""
-
-    article_id: UUID
-    article_title: str
-    article_slug: str
-    language: str
-    code: str
-
-
-class MCPSnippetsResponse(BaseModel):
-    """Список сниппетов кода."""
-
-    success: bool = True
-    tag: str
-    snippets: list[MCPSnippetItem]
-
-
-class MCPCreateArticleRequest(BaseModel):
-    """Запрос на создание статьи через MCP."""
-
-    title: str = Field(..., min_length=3, max_length=500)
-    content: str = Field(..., min_length=10)
-    description: str | None = Field(None, max_length=1000)
-    category_id: UUID | None = None
-    tag_ids: list[UUID] = Field(default_factory=list)
-    is_published: bool = False
-
-
-class MCPUpdateArticleRequest(BaseModel):
-    """Запрос на обновление статьи через MCP."""
-
-    title: str | None = Field(None, min_length=3, max_length=500)
-    content: str | None = Field(None, min_length=10)
-    description: str | None = None
-    category_id: UUID | None = None
-    tag_ids: list[UUID] | None = None
-    is_published: bool | None = None
-
-
-class MCPSuccessResponse(BaseModel):
-    """Простой успешный ответ."""
-
-    success: bool = True
-    message: str
-
-
-class MCPIndexResponse(BaseModel):
-    """Ответ на индексацию статей."""
-
-    success: bool = True
-    message: str
-    indexed_count: int
+from app.schemas.v1.knowledge.mcp import (
+    MCPArticleContentSchema,
+    MCPArticleResponseSchema,
+    MCPArticleSnippetSchema,
+    MCPCategoriesResponseSchema,
+    MCPCategoryItemSchema,
+    MCPCreateArticleRequestSchema,
+    MCPIndexDataSchema,
+    MCPIndexResponseSchema,
+    MCPSearchRequestSchema,
+    MCPSearchResponseSchema,
+    MCPSnippetItemSchema,
+    MCPSnippetsResponseSchema,
+    MCPSuccessDataSchema,
+    MCPSuccessResponseSchema,
+    MCPTagItemSchema,
+    MCPTagsResponseSchema,
+    MCPUpdateArticleRequestSchema,
+)
 
 
 # ==================== API KEY DEPENDENCY ====================
@@ -199,7 +75,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 
         @self.router.post(
             path="/search",
-            response_model=MCPSearchResponse,
+            response_model=MCPSearchResponseSchema,
             description="""\
 ## 🔍 Семантический поиск (RAG)
 
@@ -220,10 +96,10 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 """,
         )
         async def mcp_search(
-            request: MCPSearchRequest,
+            request: MCPSearchRequestSchema,
             service: KnowledgeServiceDep,
             api_key: ApiKeyHeader,
-        ) -> MCPSearchResponse:
+        ) -> MCPSearchResponseSchema:
             """Семантический поиск по базе знаний."""
             pagination = PaginationParamsSchema(
                 page=1,
@@ -247,7 +123,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
                 )
 
             snippets = [
-                MCPArticleSnippet(
+                MCPArticleSnippetSchema(
                     id=article.id,
                     title=article.title,
                     slug=article.slug,
@@ -259,7 +135,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
                 for article in articles
             ]
 
-            return MCPSearchResponse(
+            return MCPSearchResponseSchema(
                 query=request.query,
                 total=total,
                 articles=snippets,
@@ -267,7 +143,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 
         @self.router.get(
             path="/article/{slug}",
-            response_model=MCPArticleResponse,
+            response_model=MCPArticleResponseSchema,
             description="""\
 ## 📖 Получить статью по slug
 
@@ -283,12 +159,12 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
         async def mcp_get_article(
             slug: str,
             service: KnowledgeServiceDep,
-        ) -> MCPArticleResponse:
+        ) -> MCPArticleResponseSchema:
             """Получает статью по slug."""
             article = await service.get_article_by_slug(slug, published_only=True)
 
-            return MCPArticleResponse(
-                article=MCPArticleContent(
+            return MCPArticleResponseSchema(
+                article=MCPArticleContentSchema(
                     id=article.id,
                     title=article.title,
                     slug=article.slug,
@@ -304,7 +180,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 
         @self.router.get(
             path="/categories",
-            response_model=MCPCategoriesResponse,
+            response_model=MCPCategoriesResponseSchema,
             description="""\
 ## 📁 Список категорий
 
@@ -316,12 +192,12 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
         )
         async def mcp_list_categories(
             service: KnowledgeServiceDep,
-        ) -> MCPCategoriesResponse:
+        ) -> MCPCategoriesResponseSchema:
             """Получает список категорий."""
             categories_data = await service.get_categories_with_count()
 
             categories = [
-                MCPCategoryItem(
+                MCPCategoryItemSchema(
                     id=cat["category"].id,
                     name=cat["category"].name,
                     slug=cat["category"].slug,
@@ -332,11 +208,11 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
                 for cat in categories_data
             ]
 
-            return MCPCategoriesResponse(categories=categories)
+            return MCPCategoriesResponseSchema(categories=categories)
 
         @self.router.get(
             path="/tags",
-            response_model=MCPTagsResponse,
+            response_model=MCPTagsResponseSchema,
             description="""\
 ## 🏷️ Популярные теги
 
@@ -352,12 +228,12 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
         async def mcp_list_tags(
             service: KnowledgeServiceDep,
             limit: int = Query(20, ge=1, le=100),
-        ) -> MCPTagsResponse:
+        ) -> MCPTagsResponseSchema:
             """Получает популярные теги."""
             tags_data = await service.get_popular_tags(limit)
 
             tags = [
-                MCPTagItem(
+                MCPTagItemSchema(
                     id=tag["tag"].id,
                     name=tag["tag"].name,
                     slug=tag["tag"].slug,
@@ -366,11 +242,11 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
                 for tag in tags_data
             ]
 
-            return MCPTagsResponse(tags=tags)
+            return MCPTagsResponseSchema(tags=tags)
 
         @self.router.get(
             path="/snippets",
-            response_model=MCPSnippetsResponse,
+            response_model=MCPSnippetsResponseSchema,
             description="""\
 ## 💻 Сниппеты кода по тегу
 
@@ -389,10 +265,8 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
             service: KnowledgeServiceDep,
             tag: str = Query(..., description="Slug тега"),
             limit: int = Query(20, ge=1, le=100),
-        ) -> MCPSnippetsResponse:
+        ) -> MCPSnippetsResponseSchema:
             """Получает сниппеты кода по тегу."""
-            import re
-
             # Получаем статьи с тегом
             pagination = PaginationParamsSchema(page=1, page_size=limit)
             articles, _ = await service.get_published_articles(
@@ -411,7 +285,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
                 matches = code_block_pattern.findall(article.content)
                 for language, code in matches:
                     snippets.append(
-                        MCPSnippetItem(
+                        MCPSnippetItemSchema(
                             article_id=article.id,
                             article_title=article.title,
                             article_slug=article.slug,
@@ -424,11 +298,11 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
                 if len(snippets) >= limit:
                     break
 
-            return MCPSnippetsResponse(tag=tag, snippets=snippets)
+            return MCPSnippetsResponseSchema(tag=tag, snippets=snippets)
 
         @self.router.post(
             path="/articles",
-            response_model=MCPArticleResponse,
+            response_model=MCPArticleResponseSchema,
             status_code=201,
             description="""\
 ## ➕ Создать статью
@@ -451,10 +325,10 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 """,
         )
         async def mcp_create_article(
-            request: MCPCreateArticleRequest,
+            request: MCPCreateArticleRequestSchema,
             service: KnowledgeServiceDep,
             api_key: ApiKeyHeader,
-        ) -> MCPArticleResponse:
+        ) -> MCPArticleResponseSchema:
             """Создаёт статью через MCP."""
             # TODO: Получить user_id из API key
             # Пока используем системного пользователя
@@ -473,8 +347,8 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
             except Exception:
                 pass  # Ошибка индексации не критична
 
-            return MCPArticleResponse(
-                article=MCPArticleContent(
+            return MCPArticleResponseSchema(
+                article=MCPArticleContentSchema(
                     id=article.id,
                     title=article.title,
                     slug=article.slug,
@@ -490,7 +364,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 
         @self.router.put(
             path="/articles/{article_id}",
-            response_model=MCPArticleResponse,
+            response_model=MCPArticleResponseSchema,
             description="""\
 ## ✏️ Обновить статью
 
@@ -500,7 +374,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 - **article_id** — UUID статьи
 
 ### Request Body:
-- Любые поля из MCPUpdateArticleRequest
+- Любые поля из MCPUpdateArticleRequestSchema
 
 ### Headers:
 - **X-API-Key** — OpenRouter API ключ (для переиндексации)
@@ -511,10 +385,10 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
         )
         async def mcp_update_article(
             article_id: UUID,
-            request: MCPUpdateArticleRequest,
+            request: MCPUpdateArticleRequestSchema,
             service: KnowledgeServiceDep,
             api_key: ApiKeyHeader,
-        ) -> MCPArticleResponse:
+        ) -> MCPArticleResponseSchema:
             """Обновляет статью через MCP."""
             article = await service.update_article(
                 article_id,
@@ -528,8 +402,8 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
                 except Exception:
                     pass
 
-            return MCPArticleResponse(
-                article=MCPArticleContent(
+            return MCPArticleResponseSchema(
+                article=MCPArticleContentSchema(
                     id=article.id,
                     title=article.title,
                     slug=article.slug,
@@ -545,7 +419,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
 
         @self.router.delete(
             path="/articles/{article_id}",
-            response_model=MCPSuccessResponse,
+            response_model=MCPSuccessResponseSchema,
             description="""\
 ## 🗑️ Удалить статью
 
@@ -561,17 +435,19 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
         async def mcp_delete_article(
             article_id: UUID,
             service: KnowledgeServiceDep,
-        ) -> MCPSuccessResponse:
+        ) -> MCPSuccessResponseSchema:
             """Удаляет статью через MCP."""
             await service.delete_article(article_id)
 
-            return MCPSuccessResponse(
-                message=f"Article {article_id} deleted successfully"
+            return MCPSuccessResponseSchema(
+                data=MCPSuccessDataSchema(
+                    message=f"Article {article_id} deleted successfully"
+                )
             )
 
         @self.router.post(
             path="/index",
-            response_model=MCPIndexResponse,
+            response_model=MCPIndexResponseSchema,
             description="""\
 ## 🔄 Индексировать статьи для RAG
 
@@ -588,18 +464,20 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
         async def mcp_index_articles(
             service: KnowledgeServiceDep,
             api_key: ApiKeyHeader,
-        ) -> MCPIndexResponse:
+        ) -> MCPIndexResponseSchema:
             """Индексирует все статьи для RAG."""
             count = await service.index_all_articles(api_key)
 
-            return MCPIndexResponse(
-                message=f"Indexed {count} articles for semantic search",
-                indexed_count=count,
+            return MCPIndexResponseSchema(
+                data=MCPIndexDataSchema(
+                    message=f"Indexed {count} articles for semantic search",
+                    indexed_count=count,
+                )
             )
 
         @self.router.get(
             path="/similar/{article_id}",
-            response_model=MCPSearchResponse,
+            response_model=MCPSearchResponseSchema,
             description="""\
 ## 🔗 Похожие статьи
 
@@ -623,7 +501,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
             service: KnowledgeServiceDep,
             api_key: ApiKeyHeader,
             limit: int = Query(5, ge=1, le=20),
-        ) -> MCPSearchResponse:
+        ) -> MCPSearchResponseSchema:
             """Находит похожие статьи."""
             articles = await service.find_similar_articles(
                 article_id=article_id,
@@ -632,7 +510,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
             )
 
             snippets = [
-                MCPArticleSnippet(
+                MCPArticleSnippetSchema(
                     id=article.id,
                     title=article.title,
                     slug=article.slug,
@@ -646,7 +524,7 @@ class KnowledgeMCPRouter(ApiKeyProtectedRouter):
             # Получаем исходную статью для query
             source_article = await service.get_article_by_id(article_id)
 
-            return MCPSearchResponse(
+            return MCPSearchResponseSchema(
                 query=f"Similar to: {source_article.title}",
                 total=len(snippets),
                 articles=snippets,

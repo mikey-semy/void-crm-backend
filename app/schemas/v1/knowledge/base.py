@@ -180,3 +180,74 @@ class KnowledgeArticleDetailSchema(KnowledgeArticleListItemSchema):
     """
 
     content: str = Field(description="Контент в формате Markdown")
+
+
+# ==================== ЧАТ ====================
+
+
+class KnowledgeChatMessageSchema(CommonBaseSchema):
+    """
+    Схема сообщения чата.
+
+    Attributes:
+        role: Роль отправителя (user или assistant).
+        content: Содержимое сообщения.
+    """
+
+    role: str = Field(description="Роль: user или assistant")
+    content: str = Field(description="Содержимое сообщения")
+
+
+class KnowledgeChatSourceSchema(CommonBaseSchema):
+    """
+    Схема источника (статьи) использованного в ответе.
+
+    Attributes:
+        id: ID статьи.
+        title: Заголовок статьи.
+        slug: URL-friendly идентификатор.
+        relevance: Релевантность (0-1).
+    """
+
+    id: uuid.UUID = Field(description="ID статьи")
+    title: str = Field(description="Заголовок статьи")
+    slug: str = Field(description="URL-friendly идентификатор")
+    relevance: float | None = Field(None, description="Релевантность (0-1)")
+
+
+class KnowledgeChatDataSchema(CommonBaseSchema):
+    """
+    Схема данных ответа чата.
+
+    Attributes:
+        content: Ответ ассистента.
+        content_format: Формат контента (markdown или text).
+        sources: Источники из базы знаний.
+        model: Использованная модель.
+        needs_clarification: Требуется ли уточнение от пользователя.
+        clarification_options: Варианты для уточнения вопроса.
+        additional_context_loaded: Был ли загружен дополнительный контекст.
+    """
+
+    content: str = Field(description="Ответ ассистента")
+    content_format: str = Field(
+        default="markdown",
+        description="Формат контента: markdown или text",
+    )
+    sources: list[KnowledgeChatSourceSchema] = Field(
+        default_factory=list,
+        description="Источники из базы знаний",
+    )
+    model: str = Field(default="", description="Использованная модель")
+    needs_clarification: bool = Field(
+        default=False,
+        description="Требуется ли уточнение от пользователя",
+    )
+    clarification_options: list[str] = Field(
+        default_factory=list,
+        description="Варианты для уточнения вопроса",
+    )
+    additional_context_loaded: bool = Field(
+        default=False,
+        description="Был ли загружен дополнительный контекст",
+    )
