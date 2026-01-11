@@ -124,6 +124,9 @@ class DatabaseClient(BaseClient):
 
             self._session_factory = async_sessionmaker(bind=self._engine, **self._settings.session_params)
 
+            # Создаём расширение pgvector (если ещё не создано)
+            await self._ensure_pgvector_extension()
+
             self.logger.info("Глобальное подключение к базе данных установлено")
 
         return self._session_factory
@@ -194,6 +197,18 @@ class DatabaseClient(BaseClient):
         session_factory = self.get_session_factory()
         async with session_factory() as session:
             await session.execute(text("SELECT 1"))
+
+    async def _ensure_pgvector_extension(self) -> None:
+        """Создаёт расширение pgvector если оно ещё не установлено."""
+        if self._engine is None:
+            return
+
+        try:
+            async with self._engine.begin() as conn:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            self.logger.info("Расширение pgvector готово")
+        except Exception as e:
+            self.logger.warning("Не удалось создать расширение pgvector: %s", e)
 
 
 class DatabaseContextManager(BaseContextManager[AsyncSession]):
