@@ -6,7 +6,7 @@ from app.schemas.v1.openrouter import (
     OpenRouterModelSchema,
 )
 
-from .base import AISettingsSchema
+from .base import AISettingsSchema, IndexationStatsSchema
 
 
 class AISettingsResponseSchema(BaseResponseSchema):
@@ -31,3 +31,11 @@ class ReindexResponseSchema(BaseResponseSchema):
     """Ответ на запрос переиндексации статей."""
 
     indexed_count: int
+    total_published: int = 0
+    cleared_count: int = 0
+
+
+class IndexationStatsResponseSchema(BaseResponseSchema):
+    """Ответ со статистикой индексации."""
+
+    data: IndexationStatsSchema

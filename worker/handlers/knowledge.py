@@ -18,6 +18,10 @@ async def process_indexing_task(article_id: UUID) -> None:
     """
     Обрабатывает задачу индексации статьи.
 
+    Выполняет полную индексацию:
+    1. Создаёт эмбеддинг для всей статьи (для поиска похожих)
+    2. Разбивает статью на чанки и создаёт эмбеддинги для каждого (для RAG)
+
     Args:
         article_id: UUID статьи для индексации
     """
@@ -41,9 +45,22 @@ async def process_indexing_task(article_id: UUID) -> None:
 
         model = await service._get_embedding_model()
 
-        # Индексируем статью
+        # 1. Индексируем статью целиком (для поиска похожих статей)
         await service.index_article(article_id, api_key, model)
-        logger.info("✅ Статья успешно проиндексирована: %s", article_id)
+        logger.info("✅ Эмбеддинг статьи создан: %s", article_id)
+
+        # 2. Создаём чанки и индексируем их (для RAG поиска)
+        try:
+            await service.create_article_chunks(article_id)
+            logger.info("✅ Чанки статьи созданы: %s", article_id)
+
+            await service.index_article_chunks(article_id, api_key, model)
+            logger.info("✅ Эмбеддинги чанков созданы: %s", article_id)
+        except Exception as e:
+            logger.error("❌ Ошибка при чанкинге статьи %s: %s", article_id, e)
+            # Не прерываем - статья уже проиндексирована целиком
+
+        logger.info("✅ Статья полностью проиндексирована: %s", article_id)
 
 
 @router.subscriber(article_indexing_queue, exchange=exchange)

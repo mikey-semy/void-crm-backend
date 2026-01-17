@@ -400,6 +400,21 @@ class KnowledgeService(BaseService):
 
         self.logger.info("Обновлена статья: %s (id=%s)", article.title, article.id)
 
+        # Если статья опубликована и изменился контент - отправляем на переиндексацию
+        content_fields = {"title", "content", "description"}
+        if article.is_published and content_fields & set(data.keys()):
+            try:
+                from app.core.messaging.publisher import publish_article_indexing
+
+                await publish_article_indexing(article_id)
+                self.logger.info(
+                    "Задача на переиндексацию статьи отправлена в очередь: %s", article_id
+                )
+            except Exception as e:
+                self.logger.error(
+                    "Ошибка отправки задачи переиндексации в очередь %s: %s", article_id, e
+                )
+
         return article
 
     async def delete_article(self, article_id: UUID) -> bool:
@@ -460,7 +475,7 @@ class KnowledgeService(BaseService):
 
     async def unpublish_article(self, article_id: UUID) -> KnowledgeArticleModel:
         """
-        Снимает статью с публикации.
+        Снимает статью с публикации и очищает эмбеддинги.
 
         Args:
             article_id: UUID статьи
@@ -473,7 +488,23 @@ class KnowledgeService(BaseService):
         """
         article = await self.get_article_by_id(article_id)
         article.unpublish()
+
+        # Очищаем эмбеддинг статьи (чтобы не попадала в поиск)
+        article.embedding = None
+
         await self.session.commit()
+
+        # Удаляем чанки статьи (они больше не нужны для неопубликованной статьи)
+        try:
+            deleted_count = await self.chunk_repository.delete_article_chunks(article_id)
+            if deleted_count > 0:
+                self.logger.info(
+                    "Удалено %d чанков статьи: %s", deleted_count, article_id
+                )
+        except Exception as e:
+            self.logger.error(
+                "Ошибка удаления чанков статьи %s: %s", article_id, e
+            )
 
         self.logger.info("Снята с публикации статья: %s (id=%s)", article.title, article_id)
 
@@ -616,30 +647,56 @@ class KnowledgeService(BaseService):
         self,
         api_key: str,
         model: str = "openai/text-embedding-3-small",
-    ) -> int:
+        force: bool = False,
+    ) -> dict[str, int]:
         """
-        Создаёт эмбеддинги для всех опубликованных статей без эмбеддинга.
+        Создаёт эмбеддинги для всех опубликованных статей.
 
         Args:
             api_key: API ключ OpenRouter пользователя
             model: Модель для эмбеддингов
+            force: Принудительная переиндексация (сброс всех эмбеддингов)
 
         Returns:
-            int: Количество проиндексированных статей
+            dict: Статистика индексации:
+                - indexed_count: количество проиндексированных статей
+                - total_published: общее количество опубликованных статей
+                - cleared_count: количество сброшенных эмбеддингов (при force=True)
 
         Example:
-            >>> count = await service.index_all_articles(api_key="sk-or-...")
-            >>> print(f"Проиндексировано {count} статей")
+            >>> result = await service.index_all_articles(api_key="sk-or-...", force=True)
+            >>> print(f"Проиндексировано {result['indexed_count']} статей")
         """
-        # Получаем все статьи без эмбеддингов
+        result = {
+            "indexed_count": 0,
+            "total_published": 0,
+            "cleared_count": 0,
+        }
+
+        # Если force - сбрасываем все эмбеддинги
+        if force:
+            cleared = await self.article_repository.clear_all_embeddings()
+            result["cleared_count"] = cleared
+            self.logger.info("Сброшено %d эмбеддингов статей", cleared)
+
+            # Также сбрасываем эмбеддинги чанков
+            chunks_cleared = await self.chunk_repository.clear_all_chunk_embeddings()
+            self.logger.info("Сброшено %d эмбеддингов чанков", chunks_cleared)
+
+        # Получаем все опубликованные статьи без эмбеддингов
         articles = await self.article_repository.filter_by(
             is_published=True,
             embedding__is_null=True,
         )
 
+        # Подсчитываем общее количество опубликованных статей
+        result["total_published"] = await self.article_repository.count_items(
+            is_published=True
+        )
+
         if not articles:
             self.logger.info("Все статьи уже проиндексированы")
-            return 0
+            return result
 
         # Готовим тексты для batch обработки
         texts = []
@@ -654,13 +711,27 @@ class KnowledgeService(BaseService):
         client = self._get_openrouter_client(api_key)
         embeddings = await client.create_embeddings_batch(texts=texts, model=model)
 
-        # Сохраняем эмбеддинги
+        # Сохраняем эмбеддинги статей
         for article, embedding in zip(articles, embeddings, strict=True):
             await self.article_repository.update_embedding(article.id, embedding)
 
+        result["indexed_count"] = len(articles)
         self.logger.info("Проиндексировано %d статей", len(articles))
 
-        return len(articles)
+        # Создаём и индексируем чанки для каждой статьи
+        for article in articles:
+            try:
+                # Создаём чанки
+                await self.create_article_chunks(article.id)
+                # Индексируем чанки
+                await self.index_article_chunks(article.id, api_key, model)
+                self.logger.info("Чанки статьи %s проиндексированы", article.id)
+            except Exception as e:
+                self.logger.error(
+                    "Ошибка при индексации чанков статьи %s: %s", article.id, e
+                )
+
+        return result
 
     async def semantic_search_public(
         self,
@@ -1706,3 +1777,58 @@ class KnowledgeService(BaseService):
 
         result["content"] = content
         return result
+
+    # ==================== СТАТИСТИКА ИНДЕКСАЦИИ ====================
+
+    async def get_indexation_stats(self) -> dict[str, Any]:
+        """
+        Получает детальную статистику индексации для визуализации.
+
+        Возвращает информацию о каждой опубликованной статье:
+        - наличие эмбеддинга статьи
+        - количество чанков и их индексация
+
+        Returns:
+            dict: Статистика индексации
+        """
+        # Получаем все опубликованные статьи
+        articles = await self.article_repository.filter_by(is_published=True)
+
+        # Подсчёт общей статистики
+        articles_indexed = 0
+        articles_not_indexed = 0
+        total_chunks = await self.chunk_repository.count_all_chunks()
+        chunks_indexed = await self.chunk_repository.count_chunks_with_embeddings()
+
+        # Детальная информация по каждой статье
+        articles_stats = []
+        for article in articles:
+            has_embedding = article.embedding is not None
+            if has_embedding:
+                articles_indexed += 1
+            else:
+                articles_not_indexed += 1
+
+            # Получаем статистику чанков для статьи
+            chunk_stats = await self.chunk_repository.get_chunks_stats_by_article(
+                article.id
+            )
+
+            articles_stats.append({
+                "id": str(article.id),
+                "title": article.title,
+                "slug": article.slug,
+                "has_embedding": has_embedding,
+                "has_chunks": chunk_stats["total"] > 0,
+                "chunks_count": chunk_stats["total"],
+                "chunks_indexed": chunk_stats["indexed"],
+            })
+
+        return {
+            "total_published": len(articles),
+            "articles_indexed": articles_indexed,
+            "articles_not_indexed": articles_not_indexed,
+            "total_chunks": total_chunks,
+            "chunks_indexed": chunks_indexed,
+            "articles": articles_stats,
+        }

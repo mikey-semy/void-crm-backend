@@ -1039,3 +1039,48 @@ class KnowledgeArticleChunkRepository(BaseRepository[KnowledgeArticleChunkModel]
         await self.session.commit()
 
         return result.rowcount or 0
+
+    async def count_all_chunks(self) -> int:
+        """Подсчитать общее количество чанков.
+
+        Returns:
+            Общее количество чанков.
+        """
+        stmt = select(func.count()).select_from(KnowledgeArticleChunkModel)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+
+    async def get_chunks_stats_by_article(
+        self,
+        article_id: UUID,
+    ) -> dict[str, int]:
+        """Получить статистику чанков для статьи.
+
+        Args:
+            article_id: UUID статьи.
+
+        Returns:
+            Словарь с total и indexed.
+        """
+        # Общее количество чанков статьи
+        total_stmt = (
+            select(func.count())
+            .select_from(KnowledgeArticleChunkModel)
+            .where(KnowledgeArticleChunkModel.article_id == article_id)
+        )
+        total_result = await self.session.execute(total_stmt)
+        total = total_result.scalar() or 0
+
+        # Количество чанков с эмбеддингами
+        indexed_stmt = (
+            select(func.count())
+            .select_from(KnowledgeArticleChunkModel)
+            .where(
+                KnowledgeArticleChunkModel.article_id == article_id,
+                KnowledgeArticleChunkModel.embedding.isnot(None),
+            )
+        )
+        indexed_result = await self.session.execute(indexed_stmt)
+        indexed = indexed_result.scalar() or 0
+
+        return {"total": total, "indexed": indexed}

@@ -25,3 +25,12 @@ class AISettingsUpdateSchema(BaseRequestSchema):
         None,
         description="Запасная LLM модель",
     )
+
+
+class ReindexRequestSchema(BaseRequestSchema):
+    """Схема запроса переиндексации статей."""
+
+    force: bool = Field(
+        False,
+        description="Принудительная переиндексация всех статей (сброс и создание заново)",
+    )

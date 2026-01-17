@@ -65,3 +65,29 @@ class AISettingsUpdateSchema(CommonBaseSchema):
     embedding_model: str | None = Field(None, description="Модель эмбеддингов")
     llm_model: str | None = Field(None, description="Основная LLM")
     llm_fallback_model: str | None = Field(None, description="Запасная LLM")
+
+
+class ArticleIndexStatusSchema(CommonBaseSchema):
+    """Статус индексации одной статьи."""
+
+    id: str = Field(..., description="UUID статьи")
+    title: str = Field(..., description="Заголовок статьи")
+    slug: str = Field(..., description="Slug статьи")
+    has_embedding: bool = Field(..., description="Есть эмбеддинг статьи")
+    has_chunks: bool = Field(..., description="Есть чанки статьи")
+    chunks_count: int = Field(0, description="Количество чанков")
+    chunks_indexed: int = Field(0, description="Чанков с эмбеддингами")
+
+
+class IndexationStatsSchema(CommonBaseSchema):
+    """Статистика индексации для визуализации."""
+
+    total_published: int = Field(0, description="Всего опубликованных статей")
+    articles_indexed: int = Field(0, description="Статей с эмбеддингами")
+    articles_not_indexed: int = Field(0, description="Статей без эмбеддингов")
+    total_chunks: int = Field(0, description="Всего чанков")
+    chunks_indexed: int = Field(0, description="Чанков с эмбеддингами")
+    articles: list[ArticleIndexStatusSchema] = Field(
+        default_factory=list,
+        description="Детальный статус каждой статьи",
+    )

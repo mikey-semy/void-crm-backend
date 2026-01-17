@@ -23,7 +23,10 @@ from app.schemas.v1.system_settings import (
     AISettingsResponseSchema,
     AISettingsUpdateSchema,
     EmbeddingModelsResponseSchema,
+    IndexationStatsResponseSchema,
+    IndexationStatsSchema,
     LLMModelsResponseSchema,
+    ReindexRequestSchema,
     ReindexResponseSchema,
 )
 
@@ -236,14 +239,20 @@ class AdminAISettingsRouter(ProtectedRouter):
 - Только для администраторов
 - Требуется настроенный API ключ
 
+### Request Body:
+- **force** — Принудительная переиндексация (сброс всех эмбеддингов и создание заново)
+
 ### Returns:
-- Количество проиндексированных статей
+- indexed_count: количество проиндексированных статей
+- total_published: общее количество опубликованных статей
+- cleared_count: количество сброшенных эмбеддингов (при force=True)
 """,
         )
         async def reindex_articles(
             ai_service: AISettingsServiceDep,
             knowledge_service: KnowledgeServiceDep,
             current_admin: CurrentAdminDep,
+            data: ReindexRequestSchema | None = None,
         ) -> ReindexResponseSchema:
             """Переиндексирует все статьи для RAG."""
             api_key = await ai_service.get_decrypted_api_key()
@@ -259,10 +268,51 @@ class AdminAISettingsRouter(ProtectedRouter):
             ai_settings = await ai_service.get_settings()
             model = ai_settings.embedding_model or "openai/text-embedding-3-small"
 
-            count = await knowledge_service.index_all_articles(api_key, model)
+            force = data.force if data else False
+            result = await knowledge_service.index_all_articles(api_key, model, force)
+
+            if force:
+                message = f"Переиндексировано {result['indexed_count']} статей (сброшено {result['cleared_count']})"
+            elif result["indexed_count"] == 0:
+                message = "Все статьи уже проиндексированы"
+            else:
+                message = f"Проиндексировано {result['indexed_count']} новых статей"
 
             return ReindexResponseSchema(
                 success=True,
-                message=f"Проиндексировано {count} статей",
-                indexed_count=count,
+                message=message,
+                indexed_count=result["indexed_count"],
+                total_published=result["total_published"],
+                cleared_count=result["cleared_count"],
+            )
+
+        @self.router.get(
+            path="/ai/indexation-stats",
+            response_model=IndexationStatsResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 📊 Статистика индексации
+
+Возвращает детальную статистику индексации статей для визуализации.
+Показывает статус каждой опубликованной статьи (наличие эмбеддинга, чанки).
+
+### Требования:
+- Только для администраторов
+
+### Returns:
+- Общая статистика (всего статей, проиндексировано, чанков)
+- Детальный статус каждой статьи для отображения в виде сетки
+""",
+        )
+        async def get_indexation_stats(
+            knowledge_service: KnowledgeServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> IndexationStatsResponseSchema:
+            """Получает статистику индексации для визуализации."""
+            stats = await knowledge_service.get_indexation_stats()
+
+            return IndexationStatsResponseSchema(
+                success=True,
+                message="Статистика индексации получена",
+                data=IndexationStatsSchema(**stats),
             )
