@@ -43,6 +43,22 @@ class LoggingSettings(BaseSettings):
     # Трассировка SQL запросов (для отладки производительности)
     ENABLE_SQL_TRACING: bool = True
 
+    # Список логгеров для подавления (устанавливается уровень WARNING)
+    SUPPRESSED_LOGGERS: list[str] = [
+        "python_multipart",
+        "sqlalchemy.engine",
+        "passlib",
+        "httpx",
+        "httpcore",
+        "aio_pika",
+        "aiormq",
+        "aiokafka",
+        "aiokafka.conn",
+        "aiokafka.producer.producer",
+        "aiokafka.admin.client",
+        "aiokafka.cluster",
+    ]
+
     FILE_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     PRETTY_FORMAT: str = (

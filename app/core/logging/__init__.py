@@ -88,12 +88,6 @@ def setup_logging():
     # Устанавливаем уровень логирования
     root.setLevel(settings.logging.LOG_LEVEL)
 
-    # Подавляем логи от некоторых библиотек
-    for logger_name in [
-        "python_multipart",
-        "sqlalchemy.engine",
-        "passlib",
-        "httpx",
-        "httpcore",
-    ]:
+    # Подавляем логи от шумных библиотек (список настраивается в SUPPRESSED_LOGGERS)
+    for logger_name in settings.logging.SUPPRESSED_LOGGERS:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
