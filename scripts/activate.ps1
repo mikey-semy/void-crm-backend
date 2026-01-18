@@ -12,13 +12,6 @@ $workerJob = Start-Job -ScriptBlock {
 }
 Write-Host "✅ Воркер запущен (Job ID: $($workerJob.Id))" -ForegroundColor Green
 
-# Регистрируем остановку воркера при выходе
-Register-EngineEvent PowerShell.Exiting -Action {
-    Write-Host "🛑 Останавливаю воркер..." -ForegroundColor Cyan
-    Stop-Job $workerJob -ErrorAction SilentlyContinue
-    Remove-Job $workerJob -ErrorAction SilentlyContinue
-}
-
 # Запускаем dev режим из корня
 Write-Host "🚀 Запускаю dev режим..." -ForegroundColor Cyan
 try {

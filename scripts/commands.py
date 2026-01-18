@@ -21,14 +21,14 @@ COMPOSE_FILE_WITHOUT_BACKEND_TEST = "docker-compose.test.yml"
 
 # Порты для DEV инфраструктуры (стартовые значения для автопоиска)
 DEFAULT_PORTS = {
-    'FASTAPI': 8001,
+    'FASTAPI': 8000,
     'POSTGRES': 5432,
     'REDIS': 6379,
 }
 
 # Порты для TEST инфраструктуры (стартовые значения для автопоиска)
 TEST_PORTS = {
-    'FASTAPI': 8001,
+    'FASTAPI': 8000,
     'POSTGRES': 5433,
     'REDIS': 6380,
     'RABBITMQ': 5682,
@@ -891,8 +891,8 @@ def dev(port: Optional[int] = None):
     Основная команда для разработки - запуск полного стека.
 
     Выполняет полный цикл подготовки и запуска:
-    1. start_infrastructure() - поднимает всю инфраструктуру
-    2. find_free_port() - находит свободный порт для FastAPI
+    1. find_free_port() - находит свободный порт для FastAPI
+    2. start_infrastructure() - поднимает всю инфраструктуру
     3. uvicorn.run() - запускает сервер с hot reload
 
     Args:
@@ -902,13 +902,13 @@ def dev(port: Optional[int] = None):
         При ошибке инфраструктуры прерывает выполнение.
         Сервер запускается с debug логами и автоперезагрузкой
     """
-
-    # Запускаем инфраструктуру
-    if not start_infrastructure():
-        return
-
+    # Находим порт для FastAPI ДО запуска инфраструктуры
     if port is None:
         port = find_free_port()
+
+    # Запускаем инфраструктуру
+    if not start_infrastructure(port):
+        return
 
 
     print("\n" + "="*60)
@@ -928,7 +928,7 @@ def dev(port: Optional[int] = None):
         access_log=False
     )
 
-def start_infrastructure():
+def start_infrastructure(port: Optional[int] = None) -> bool:
     """
     Главная функция запуска инфраструктуры разработки.
 
@@ -1059,8 +1059,8 @@ def start_infrastructure():
 
         # Используем порты в docker-compose через переменные окружения
         env_for_compose = {
-            f"{service}_PORT": str(port)
-            for service, port in ports.items()
+            f"{service}_PORT": str(p)
+            for service, p in ports.items()
         }
 
         # ВАЖНО: Обновляем переменные окружения для текущего процесса
@@ -1068,8 +1068,8 @@ def start_infrastructure():
         os.environ.update(env_for_compose)
 
         print(f"🔍 Порты для запуска:")
-        for service, port in ports.items():
-            print(f"   {service}: {port}")
+        for service, p in ports.items():
+            print(f"   {service}: {p}")
 
         # Запуск контейнеров с loader
         stop_loader = threading.Event()
@@ -1112,7 +1112,7 @@ def start_infrastructure():
         print("="*60)
 
         print("\n📡 СЕРВИСЫ:")
-        print(f"📊 FastAPI Swagger:    http://localhost:{ports['FASTAPI']}/docs")
+        print(f"📊 FastAPI Swagger:    http://localhost:{port}/docs")
         print(f"🗄️ PostgreSQL:        localhost:{ports['POSTGRES']}")
         print(f"📦 Redis:             localhost:{ports['REDIS']}")
 
