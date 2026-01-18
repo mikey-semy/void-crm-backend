@@ -791,6 +791,106 @@ class DecisionService(BaseService):
         )
         return summary
 
+    async def get_completed_tasks_summary(self) -> dict:
+        """
+        Получить сводку всех завершённых задач с их решениями.
+
+        Возвращает только задачи со статусом 'completed', включая:
+        - Комментарии (notes)
+        - Ответственного (assignee)
+        - Дату завершения (completed_at)
+        - Поля решений (decision_fields), если есть
+
+        Returns:
+            dict: Сводка завершённых задач с прогрессом
+        """
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        # Загружаем все категории с завершёнными задачами и полями решений
+        stmt = (
+            select(ChecklistCategoryModel)
+            .options(
+                selectinload(ChecklistCategoryModel.tasks)
+                .selectinload(ChecklistTaskModel.decision_fields)
+                .selectinload(TaskDecisionFieldModel.value)
+            )
+            .order_by(ChecklistCategoryModel.order)
+        )
+
+        result = await self.session.execute(stmt)
+        categories = list(result.scalars().all())
+
+        summary = {
+            "categories": [],
+            "total_filled": 0,
+            "total_fields": 0,
+            "overall_progress": 0.0,
+        }
+
+        for category in categories:
+            category_data = {
+                "category_id": category.id,
+                "category_title": category.title,
+                "category_icon": category.icon,
+                "category_color": category.color,
+                "tasks": [],
+                "filled_count": 0,
+                "total_count": 0,
+                "progress_percentage": 0.0,
+            }
+
+            for task in category.tasks:
+                # Показываем только завершённые задачи
+                if task.status != "completed":
+                    continue
+
+                # Подсчёт заполненных полей решений
+                filled = sum(1 for f in task.decision_fields if f.value is not None)
+                total = len(task.decision_fields)
+
+                task_data = {
+                    "task_id": task.id,
+                    "task_title": task.title,
+                    "task_status": task.status,
+                    "notes": task.notes,
+                    "assignee": task.assignee,
+                    "completed_at": task.completed_at,
+                    "fields": [self._field_to_dict(f) for f in task.decision_fields],
+                    "filled_count": filled,
+                    "total_count": total,
+                    "is_complete": task.decision_fields_required_filled if task.decision_fields else True,
+                }
+
+                category_data["tasks"].append(task_data)
+                category_data["filled_count"] += filled
+                category_data["total_count"] += total
+
+            # Пропускаем категории без завершённых задач
+            if not category_data["tasks"]:
+                continue
+
+            if category_data["total_count"] > 0:
+                category_data["progress_percentage"] = round(
+                    (category_data["filled_count"] / category_data["total_count"]) * 100, 2
+                )
+
+            summary["categories"].append(category_data)
+            summary["total_filled"] += category_data["filled_count"]
+            summary["total_fields"] += category_data["total_count"]
+
+        if summary["total_fields"] > 0:
+            summary["overall_progress"] = round(
+                (summary["total_filled"] / summary["total_fields"]) * 100, 2
+            )
+
+        self.logger.debug(
+            "Получена сводка завершённых задач: %d категорий, прогресс %.1f%%",
+            len(summary["categories"]),
+            summary["overall_progress"],
+        )
+        return summary
+
     def _field_to_dict(self, field: TaskDecisionFieldModel) -> dict:
         """Конвертация поля в словарь для ответа."""
         return {
