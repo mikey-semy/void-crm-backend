@@ -377,3 +377,32 @@ class PartnershipDecisionsRouter(ProtectedRouter):
                 message="Решения партнёрства получены",
                 data=PartnershipDecisionsSummarySchema(**summary),
             )
+
+        @self.router.get(
+            path="/summary",
+            response_model=PartnershipDecisionsResponseSchema,
+            description="""\
+## Сводка завершённых задач партнёрства
+
+Возвращает все завершённые задачи (status='completed') с их данными:
+- Комментарии (notes)
+- Ответственный (assignee)
+- Дата завершения (completed_at)
+- Поля решений (decision_fields), если есть
+
+### Returns:
+- Список категорий с завершёнными задачами
+- Общий процент заполненности полей решений
+""",
+        )
+        async def get_partnership_summary(
+            service: DecisionServiceDep,
+        ) -> PartnershipDecisionsResponseSchema:
+            """Получает сводку всех завершённых задач партнёрства."""
+            summary = await service.get_completed_tasks_summary()
+
+            return PartnershipDecisionsResponseSchema(
+                success=True,
+                message="Сводка завершённых задач получена",
+                data=PartnershipDecisionsSummarySchema(**summary),
+            )
