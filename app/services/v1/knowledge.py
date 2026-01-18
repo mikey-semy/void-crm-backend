@@ -795,6 +795,86 @@ class KnowledgeService(BaseService):
 
         return articles, total
 
+    async def hybrid_search_public(
+        self,
+        query: str,
+        pagination: "PaginationParamsSchema",
+        category_ids: list[UUID] | None = None,
+        full_text_weight: float = 1.0,
+        semantic_weight: float = 1.0,
+        rrf_k: int = 60,
+    ) -> tuple[list[KnowledgeArticleModel], int, list[dict]]:
+        """
+        Публичный гибридный поиск по статьям (FTS + semantic с RRF).
+
+        Комбинирует полнотекстовый и семантический поиск через
+        Reciprocal Rank Fusion. Использует API ключ из системных настроек.
+
+        Args:
+            query: Поисковый запрос
+            pagination: Параметры пагинации
+            category_ids: Фильтр по категориям
+            full_text_weight: Вес FTS в RRF (default 1.0)
+            semantic_weight: Вес семантического поиска в RRF (default 1.0)
+            rrf_k: Параметр RRF, влияет на сглаживание (default 60)
+
+        Returns:
+            Кортеж (список статей, общее количество, метаданные скоринга)
+
+        Raises:
+            ValidationError: Если запрос слишком короткий или API ключ не настроен
+        """
+        if not query or len(query.strip()) < 2:
+            raise ValidationError(
+                detail="Поисковый запрос должен содержать минимум 2 символа",
+                field="query",
+                value=query,
+            )
+
+        # Получаем API ключ из системных настроек
+        api_key = await self._get_system_api_key()
+        if not api_key:
+            # Fallback: если API ключ не настроен, используем только FTS
+            self.logger.warning(
+                "API ключ не настроен, гибридный поиск использует только FTS"
+            )
+            articles, total = await self.search_articles(
+                query=query,
+                pagination=pagination,
+                category_ids=category_ids,
+            )
+            return articles, total, []
+
+        model = await self._get_embedding_model()
+
+        # Создаём эмбеддинг запроса
+        client = self._get_openrouter_client(api_key)
+        query_embedding = await client.create_embedding(text=query.strip(), model=model)
+
+        # Берём первую категорию если передан список (для совместимости)
+        category_id = category_ids[0] if category_ids else None
+
+        # Выполняем гибридный поиск
+        articles, total, scoring_metadata = await self.article_repository.hybrid_search(
+            query=query.strip(),
+            embedding=query_embedding,
+            pagination=pagination,
+            category_id=category_id,
+            full_text_weight=full_text_weight,
+            semantic_weight=semantic_weight,
+            rrf_k=rrf_k,
+        )
+
+        self.logger.info(
+            "Гибридный поиск '%s': найдено %d статей (FTS weight=%.1f, semantic weight=%.1f)",
+            query,
+            total,
+            full_text_weight,
+            semantic_weight,
+        )
+
+        return articles, total, scoring_metadata
+
     async def semantic_search(
         self,
         query: str,

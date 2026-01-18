@@ -1,11 +1,13 @@
 """
 Роутер для поиска по базе знаний.
 
-Поддерживает два режима:
+Поддерживает три режима:
 - Полнотекстовый поиск через PostgreSQL tsvector
 - Семантический поиск (RAG) через OpenRouter embeddings + pgvector
+- Гибридный поиск (FTS + semantic с RRF объединением)
 """
 
+from enum import Enum
 from uuid import UUID
 
 from fastapi import Query
@@ -21,6 +23,14 @@ from app.schemas.v1.knowledge import (
     KnowledgeSearchResponseSchema,
     KnowledgeTagListItemSchema,
 )
+
+
+class SearchMode(str, Enum):
+    """Режим поиска по базе знаний."""
+
+    FULLTEXT = "fulltext"
+    SEMANTIC = "semantic"
+    HYBRID = "hybrid"
 
 
 def _article_to_list_schema(article) -> KnowledgeArticleListItemSchema:
@@ -91,33 +101,39 @@ class KnowledgeSearchRouter(BaseRouter):
             path="",
             response_model=KnowledgeSearchResponseSchema,
             description="""\
-## 🔍 Поиск по статьям
+## Поиск по статьям
 
-Поддерживает два режима поиска:
+Поддерживает три режима поиска:
 
-### Полнотекстовый поиск (semantic=false, по умолчанию)
+### Полнотекстовый поиск (mode=fulltext, по умолчанию)
 - Использует PostgreSQL tsvector с поддержкой русского языка
 - Ищет точные совпадения слов в заголовках, описаниях и контенте
 - Быстрый, не требует внешних API
 
-### Семантический поиск / RAG (semantic=true)
+### Семантический поиск (mode=semantic)
 - Использует OpenRouter embeddings + pgvector
 - Ищет по смыслу запроса, а не по точным словам
 - Требует настроенный API ключ в системных настройках
-- Статьи должны быть проиндексированы (embedding != null)
+
+### Гибридный поиск (mode=hybrid) - РЕКОМЕНДУЕТСЯ
+- Комбинирует FTS и семантический поиск через RRF
+- Лучшее качество: точные совпадения + семантическое понимание
+- Настраиваемые веса для FTS и semantic компонент
 
 ### Query Parameters:
 - **q** — Поисковый запрос (минимум 2 символа)
-- **semantic** — Использовать семантический поиск (по умолчанию false)
+- **mode** — Режим поиска: fulltext, semantic, hybrid (default: fulltext)
 - **page** — Номер страницы (по умолчанию 1)
 - **page_size** — Размер страницы (по умолчанию 20)
 - **categories** — Фильтр по категориям (UUID через запятую)
 - **tags** — Фильтр по тегам (slugs через запятую)
+- **fts_weight** — Вес FTS в гибридном поиске (0.0-2.0, default 1.0)
+- **semantic_weight** — Вес semantic в гибридном поиске (0.0-2.0, default 1.0)
 
 ### Example:
 ```
-GET /api/v1/knowledge/search?q=react+hooks
-GET /api/v1/knowledge/search?q=как+настроить+docker&semantic=true
+GET /api/v1/knowledge/search?q=react+hooks&mode=hybrid
+GET /api/v1/knowledge/search?q=docker&mode=hybrid&fts_weight=0.5&semantic_weight=1.5
 ```
 """,
         )
@@ -125,11 +141,31 @@ GET /api/v1/knowledge/search?q=как+настроить+docker&semantic=true
             service: KnowledgeServiceDep,
             current_user: OptionalCurrentUserDep,
             q: str = Query(..., min_length=2, max_length=200, description="Поисковый запрос"),
-            semantic: bool = Query(False, description="Использовать семантический поиск (RAG)"),
+            mode: SearchMode = Query(
+                SearchMode.FULLTEXT,
+                description="Режим поиска: fulltext, semantic, hybrid",
+            ),
+            semantic: bool = Query(
+                False,
+                description="[DEPRECATED] Используйте mode=semantic вместо этого",
+                include_in_schema=False,
+            ),
             page: int = Query(1, ge=1, description="Номер страницы"),
             page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
             categories: str | None = Query(None, description="Фильтр по категориям (UUID через запятую)"),
             tags: str | None = Query(None, description="Фильтр по тегам (slugs через запятую)"),
+            fts_weight: float = Query(
+                1.0,
+                ge=0.0,
+                le=2.0,
+                description="Вес FTS в гибридном поиске",
+            ),
+            semantic_weight: float = Query(
+                1.0,
+                ge=0.0,
+                le=2.0,
+                description="Вес семантического поиска в гибридном режиме",
+            ),
         ) -> KnowledgeSearchResponseSchema:
             """Выполняет поиск по статьям."""
             pagination = PaginationParamsSchema(
@@ -145,7 +181,22 @@ GET /api/v1/knowledge/search?q=как+настроить+docker&semantic=true
             # Если пользователь авторизован, показываем ему также его черновики
             current_user_id = current_user.id if current_user else None
 
-            if semantic:
+            # Обратная совместимость: semantic=true -> mode=semantic
+            effective_mode = mode
+            if semantic and mode == SearchMode.FULLTEXT:
+                effective_mode = SearchMode.SEMANTIC
+
+            if effective_mode == SearchMode.HYBRID:
+                # Гибридный поиск через RRF
+                articles, total, _scoring = await service.hybrid_search_public(
+                    query=q,
+                    pagination=pagination,
+                    category_ids=category_ids,
+                    full_text_weight=fts_weight,
+                    semantic_weight=semantic_weight,
+                )
+                search_type = "гибридный"
+            elif effective_mode == SearchMode.SEMANTIC:
                 # Семантический поиск через RAG
                 articles, total = await service.semantic_search_public(
                     query=q,

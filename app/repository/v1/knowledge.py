@@ -720,6 +720,134 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 
+    async def hybrid_search(
+        self,
+        query: str,
+        embedding: list[float],
+        pagination: "PaginationParamsSchema",
+        category_id: UUID | None = None,
+        full_text_weight: float = 1.0,
+        semantic_weight: float = 1.0,
+        rrf_k: int = 60,
+    ) -> tuple[list[KnowledgeArticleModel], int, list[dict]]:
+        """Гибридный поиск по статьям с использованием RRF.
+
+        Комбинирует полнотекстовый и семантический поиск через
+        Reciprocal Rank Fusion для улучшения качества результатов.
+
+        Args:
+            query: Текстовый поисковый запрос.
+            embedding: Вектор запроса для семантического поиска.
+            pagination: Параметры пагинации.
+            category_id: Фильтр по категории (optional).
+            full_text_weight: Вес полнотекстового поиска (default 1.0).
+            semantic_weight: Вес семантического поиска (default 1.0).
+            rrf_k: Параметр RRF для сглаживания (default 60).
+
+        Returns:
+            Кортеж (список статей, общее количество, метаданные скоринга).
+        """
+        from sqlalchemy import text as sql_text
+
+        # Преобразуем embedding в строку для SQL
+        embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
+
+        # Формируем параметры для SQL функции
+        category_param = f"'{category_id}'::uuid" if category_id else "NULL"
+
+        # Подсчёт общего количества через hybrid_search с большим лимитом
+        count_sql = sql_text(f"""
+            SELECT COUNT(*) FROM hybrid_search(
+                :query_text,
+                '{embedding_str}'::vector,
+                1000,
+                :full_text_weight,
+                :semantic_weight,
+                :rrf_k,
+                {category_param}
+            )
+        """)
+
+        count_result = await self.session.execute(
+            count_sql,
+            {
+                "query_text": query,
+                "full_text_weight": full_text_weight,
+                "semantic_weight": semantic_weight,
+                "rrf_k": rrf_k,
+            },
+        )
+        total = count_result.scalar() or 0
+
+        # Основной запрос с пагинацией
+        offset = (pagination.page - 1) * pagination.page_size
+
+        search_sql = sql_text(f"""
+            SELECT
+                id,
+                fts_rank,
+                semantic_rank,
+                combined_score
+            FROM hybrid_search(
+                :query_text,
+                '{embedding_str}'::vector,
+                :limit,
+                :full_text_weight,
+                :semantic_weight,
+                :rrf_k,
+                {category_param}
+            )
+            OFFSET :offset
+        """)
+
+        result = await self.session.execute(
+            search_sql,
+            {
+                "query_text": query,
+                "limit": pagination.page_size + offset,
+                "full_text_weight": full_text_weight,
+                "semantic_weight": semantic_weight,
+                "rrf_k": rrf_k,
+                "offset": offset,
+            },
+        )
+
+        rows = result.all()
+
+        if not rows:
+            return [], total, []
+
+        # Извлекаем IDs и метаданные скоринга
+        article_ids = [row[0] for row in rows]
+        scoring_metadata = [
+            {
+                "id": str(row[0]),
+                "fts_rank": row[1],
+                "semantic_rank": row[2],
+                "combined_score": row[3],
+            }
+            for row in rows
+        ]
+
+        # Загружаем полные объекты с связями
+        stmt = (
+            select(KnowledgeArticleModel)
+            .where(KnowledgeArticleModel.id.in_(article_ids))
+            .options(
+                selectinload(KnowledgeArticleModel.category),
+                selectinload(KnowledgeArticleModel.tags),
+                selectinload(KnowledgeArticleModel.author),
+            )
+        )
+
+        result = await self.session.execute(stmt)
+        articles_map = {a.id: a for a in result.scalars().all()}
+
+        # Возвращаем в порядке релевантности (по combined_score)
+        articles = [articles_map[aid] for aid in article_ids if aid in articles_map]
+
+        return articles, total, scoring_metadata
+
 
 class KnowledgeChatSessionRepository(BaseRepository[KnowledgeChatSessionModel]):
     """Репозиторий для операций с сессиями чата базы знаний.
