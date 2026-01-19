@@ -6,6 +6,7 @@
 
 import logging
 import os
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from app.core.settings import settings
@@ -55,14 +56,16 @@ def setup_logging():
             ) as _:
                 pass
 
-            file_handler = logging.FileHandler(
+            file_handler = RotatingFileHandler(
                 filename=log_path,
                 mode=settings.logging.FILE_MODE,
                 encoding=settings.logging.ENCODING,
+                maxBytes=settings.logging.MAX_BYTES,
+                backupCount=settings.logging.BACKUP_COUNT,
             )
             file_handler.setFormatter(CustomJsonFormatter())
             root.addHandler(file_handler)
-            print(f"✅ Логи будут писаться в: {log_path}")
+            print(f"✅ Логи будут писаться в: {log_path} (ротация: {settings.logging.MAX_BYTES // 1024 // 1024}MB x {settings.logging.BACKUP_COUNT} файлов)")
         except (PermissionError, OSError) as e:
             print(f"⚠️ Не удалось использовать основной файл логов {primary_log_path}: {e}")
             primary_log_path = None
@@ -74,14 +77,16 @@ def setup_logging():
             if not fallback_path.parent.exists():
                 os.makedirs(str(fallback_path.parent), exist_ok=True)
 
-            file_handler = logging.FileHandler(
+            file_handler = RotatingFileHandler(
                 filename=str(fallback_path),
                 mode=settings.logging.FILE_MODE,
                 encoding=settings.logging.ENCODING,
+                maxBytes=settings.logging.MAX_BYTES,
+                backupCount=settings.logging.BACKUP_COUNT,
             )
             file_handler.setFormatter(CustomJsonFormatter())
             root.addHandler(file_handler)
-            print(f"✅ Используем резервный путь для логов: {fallback_path}")
+            print(f"✅ Используем резервный путь для логов: {fallback_path} (ротация: {settings.logging.MAX_BYTES // 1024 // 1024}MB x {settings.logging.BACKUP_COUNT} файлов)")
         except (PermissionError, OSError) as e:
             print(f"❌ Не удалось создать файл логов: {e}")
 
