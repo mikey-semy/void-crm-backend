@@ -803,6 +803,7 @@ class KnowledgeService(BaseService):
         full_text_weight: float = 1.0,
         semantic_weight: float = 1.0,
         rrf_k: int = 60,
+        similarity_threshold: float = 0.5,
     ) -> tuple[list[KnowledgeArticleModel], int, list[dict]]:
         """
         Публичный гибридный поиск по статьям (FTS + semantic с RRF).
@@ -817,6 +818,7 @@ class KnowledgeService(BaseService):
             full_text_weight: Вес FTS в RRF (default 1.0)
             semantic_weight: Вес семантического поиска в RRF (default 1.0)
             rrf_k: Параметр RRF, влияет на сглаживание (default 60)
+            similarity_threshold: Минимальный порог схожести 0-1 (default 0.5)
 
         Returns:
             Кортеж (список статей, общее количество, метаданные скоринга)
@@ -863,6 +865,7 @@ class KnowledgeService(BaseService):
             full_text_weight=full_text_weight,
             semantic_weight=semantic_weight,
             rrf_k=rrf_k,
+            similarity_threshold=similarity_threshold,
         )
 
         self.logger.info(

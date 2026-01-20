@@ -166,6 +166,12 @@ GET /api/v1/knowledge/search?q=docker&mode=hybrid&fts_weight=0.5&semantic_weight
                 le=2.0,
                 description="Вес семантического поиска в гибридном режиме",
             ),
+            similarity_threshold: float = Query(
+                0.5,
+                ge=0.0,
+                le=1.0,
+                description="Минимальный порог схожести для семантического поиска (0-1, default 0.5)",
+            ),
         ) -> KnowledgeSearchResponseSchema:
             """Выполняет поиск по статьям."""
             pagination = PaginationParamsSchema(
@@ -194,6 +200,7 @@ GET /api/v1/knowledge/search?q=docker&mode=hybrid&fts_weight=0.5&semantic_weight
                     category_ids=category_ids,
                     full_text_weight=fts_weight,
                     semantic_weight=semantic_weight,
+                    similarity_threshold=similarity_threshold,
                 )
                 search_type = "гибридный"
             elif effective_mode == SearchMode.SEMANTIC:

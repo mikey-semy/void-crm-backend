@@ -78,6 +78,32 @@ class SystemSettingsRepository(BaseRepository[SystemSettingsModel]):
         setting = await self.get_item_by_field("key", key)
         return setting.value if setting else default
 
+    async def get_values_bulk(self, keys: list[str], defaults: dict[str, str] | None = None) -> dict[str, str]:
+        """
+        Получает несколько настроек одним запросом.
+
+        Args:
+            keys: Список ключей настроек
+            defaults: Словарь значений по умолчанию {key: default_value}
+
+        Returns:
+            Словарь {key: value} для всех запрошенных ключей
+        """
+        defaults = defaults or {}
+
+        # Загружаем все настройки одним запросом через IN
+        settings_list = await self.filter_by(key__in=keys)
+
+        # Создаём словарь из результатов
+        result = {s.key: s.value for s in settings_list}
+
+        # Добавляем дефолтные значения для отсутствующих ключей
+        for key in keys:
+            if key not in result:
+                result[key] = defaults.get(key, "")
+
+        return result
+
     async def delete_by_key(self, key: str) -> bool:
         """
         Удаляет настройку по ключу.

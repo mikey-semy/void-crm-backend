@@ -41,44 +41,42 @@ class AISettingsService(BaseService):
         """
         Получает текущие AI настройки.
 
+        Оптимизировано: загружает все настройки одним SQL запросом.
+
         Returns:
             AISettingsSchema с текущими настройками
         """
         ai_settings = settings.ai
 
-        # AI enabled/disabled
-        ai_enabled_str = await self.repository.get_value(
+        # Загружаем все настройки одним запросом (вместо 7 отдельных)
+        keys = [
             SystemSettingsKeys.AI_ENABLED,
-            "true",
-        )
-        ai_enabled = ai_enabled_str.lower() == "true"
-
-        provider = await self.repository.get_value(
             SystemSettingsKeys.RAG_EMBEDDING_PROVIDER,
-            ai_settings.RAG_DEFAULT_PROVIDER,
-        )
-        model = await self.repository.get_value(
             SystemSettingsKeys.RAG_EMBEDDING_MODEL,
-            ai_settings.RAG_DEFAULT_MODEL,
-        )
-        dimension_str = await self.repository.get_value(
             SystemSettingsKeys.RAG_EMBEDDING_DIMENSION,
-            str(ai_settings.RAG_DEFAULT_DIMENSION),
-        )
-        encrypted_key = await self.repository.get_value(
             SystemSettingsKeys.RAG_API_KEY,
-            "",
-        )
-
-        # Получаем LLM модели
-        llm_model = await self.repository.get_value(
             SystemSettingsKeys.AI_LLM_MODEL,
-            "",
-        )
-        llm_fallback_model = await self.repository.get_value(
             SystemSettingsKeys.AI_LLM_FALLBACK_MODEL,
-            "",
-        )
+        ]
+        defaults = {
+            SystemSettingsKeys.AI_ENABLED: "true",
+            SystemSettingsKeys.RAG_EMBEDDING_PROVIDER: ai_settings.RAG_DEFAULT_PROVIDER,
+            SystemSettingsKeys.RAG_EMBEDDING_MODEL: ai_settings.RAG_DEFAULT_MODEL,
+            SystemSettingsKeys.RAG_EMBEDDING_DIMENSION: str(ai_settings.RAG_DEFAULT_DIMENSION),
+            SystemSettingsKeys.RAG_API_KEY: "",
+            SystemSettingsKeys.AI_LLM_MODEL: "",
+            SystemSettingsKeys.AI_LLM_FALLBACK_MODEL: "",
+        }
+        values = await self.repository.get_values_bulk(keys, defaults)
+
+        # Распаковываем значения
+        ai_enabled = values[SystemSettingsKeys.AI_ENABLED].lower() == "true"
+        provider = values[SystemSettingsKeys.RAG_EMBEDDING_PROVIDER]
+        model = values[SystemSettingsKeys.RAG_EMBEDDING_MODEL]
+        dimension_str = values[SystemSettingsKeys.RAG_EMBEDDING_DIMENSION]
+        encrypted_key = values[SystemSettingsKeys.RAG_API_KEY]
+        llm_model = values[SystemSettingsKeys.AI_LLM_MODEL]
+        llm_fallback_model = values[SystemSettingsKeys.AI_LLM_FALLBACK_MODEL]
 
         # Получаем количество статей с эмбеддингами
         indexed_count = await self.article_repository.count_with_embeddings()

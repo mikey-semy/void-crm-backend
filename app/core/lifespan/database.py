@@ -28,7 +28,7 @@ async def initialize_database(app: FastAPI):
 
     Подключает PostgreSQL, сохраняет клиентов в app.state для дальнейшего использования.
     """
-    client = DatabaseClient()
+    client = await DatabaseClient.get_instance()
     await client.connect()
     app.state.pg_client = client
 

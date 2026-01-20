@@ -11,7 +11,6 @@
 """
 
 import asyncio
-import gc
 import weakref
 from collections.abc import AsyncGenerator
 from typing import Optional
@@ -100,7 +99,7 @@ class DatabaseClient(BaseClient):
 
         Usage:
             ```python
-            db_client = DatabaseClient()
+            db_client = await DatabaseClient.get_instance()
             session_factory = await db_client.connect()
             async with session_factory() as session:
                 # Работа с сессией
@@ -140,7 +139,7 @@ class DatabaseClient(BaseClient):
 
         Usage:
             ```python
-            db_client = DatabaseClient()
+            db_client = await DatabaseClient.get_instance()
             try:
                 session_factory = await db_client.connect()
                 # Работа с базой данных
@@ -253,8 +252,8 @@ class DatabaseContextManager(BaseContextManager[AsyncSession]):
             await db_manager.close()
             ```
         """
-        # Получаем глобальную фабрику сессий
-        db_client = DatabaseClient()
+        # Получаем глобальную фабрику сессий через singleton
+        db_client = await DatabaseClient.get_instance()
         session_factory = await db_client.connect()
 
         self.session = session_factory()
@@ -299,14 +298,13 @@ class DatabaseContextManager(BaseContextManager[AsyncSession]):
                 await self.session.close()
 
                 # Явно удаляем все ссылки на объект сессии
-                del self.session
                 self.session = None
                 self._session_weakref = None
 
-                # Принудительно запускаем сборщик мусора для немедленной очистки
-                gc.collect()
+                # НЕ вызываем gc.collect() на каждый запрос - это замедляет работу!
+                # GC запускается автоматически когда нужно
 
-                self.logger.debug("Сессия базы данных закрыта и удалена из памяти (id=%s)", session_id)
+                self.logger.debug("Сессия базы данных закрыта (id=%s)", session_id)
 
     async def commit(self) -> None:
         """
@@ -393,7 +391,7 @@ async def get_session_factory(_settings: Settings = settings) -> async_sessionma
             pass
         ```
     """
-    client = DatabaseClient(_settings)
+    client = await DatabaseClient.get_instance()
     return await client.connect()
 
 
@@ -409,7 +407,7 @@ async def close_database_connection(_settings: Settings = settings) -> None:
         await close_database_connection()
         ```
     """
-    client = DatabaseClient(_settings)
+    client = await DatabaseClient.get_instance()
     await client.close()
 
 

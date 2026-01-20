@@ -68,7 +68,7 @@ async def load_checklist_fixtures():
 
     logger.info("Загружено %d категорий из %s", len(checklist_data), CHECKLIST_FILE.name)
 
-    db_client = DatabaseClient()
+    db_client = await DatabaseClient.get_instance()
     session_factory = await db_client.connect()
 
     async with session_factory() as session:

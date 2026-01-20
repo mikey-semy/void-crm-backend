@@ -33,6 +33,7 @@ from app.core.exceptions import (
     TokenMissingError,
 )
 from app.core.security.token_manager import TokenManager
+from app.repository.cache import RedisCacheBackend
 from app.schemas import UserCurrentSchema
 
 logger = logging.getLogger(__name__)
@@ -166,9 +167,11 @@ class AuthenticationManager:
             logger.debug("🔍 [AUTH] Начинаем async for session in get_db_session()...")
             async for session in get_db_session():
                 logger.debug("🔍 [AUTH] Внутри async for - сессия получена")
-                repository = UserRepository(session)
+                # Используем Redis кэш для ускорения повторных запросов пользователя
+                cache_backend = RedisCacheBackend()
+                repository = UserRepository(session, cache_backend=cache_backend)
                 logger.debug(
-                    "🔍 [AUTH] UserRepository создан, вызываем get_user_by_identifier..."
+                    "🔍 [AUTH] UserRepository создан с кэшем, вызываем get_user_by_identifier..."
                 )
 
                 # Роли и компания загружаются автоматически через default_options
