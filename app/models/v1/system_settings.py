@@ -61,6 +61,7 @@ class SystemSettingsKeys:
     RAG_API_KEY = "rag.api_key"  # Зашифрованный ключ
 
     # AI настройки (LLM модели)
+    AI_ENABLED = "ai.enabled"  # AI функции включены/выключены
     AI_LLM_MODEL = "ai.llm_model"  # Основная LLM модель
     AI_LLM_FALLBACK_MODEL = "ai.llm_fallback_model"  # Резервная LLM модель
 
@@ -74,6 +75,7 @@ class SystemSettingsKeys:
     ]
 
     ALL_AI_KEYS = [
+        AI_ENABLED,
         AI_LLM_MODEL,
         AI_LLM_FALLBACK_MODEL,
     ]

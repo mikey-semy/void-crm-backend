@@ -20,8 +20,9 @@ COMPOSE_FILE_WITHOUT_BACKEND = "docker-compose.dev.yml"
 COMPOSE_FILE_WITHOUT_BACKEND_TEST = "docker-compose.test.yml"
 
 # Порты для DEV инфраструктуры (стартовые значения для автопоиска)
+# API_PORT читается из .env.dev в dev() функции
 DEFAULT_PORTS = {
-    'FASTAPI': 8000,
+    'FASTAPI': 8000,  # Будет перезаписан из API_PORT в .env.dev
     'POSTGRES': 5432,
     'REDIS': 6379,
 }
@@ -891,20 +892,33 @@ def dev(port: Optional[int] = None):
     Основная команда для разработки - запуск полного стека.
 
     Выполняет полный цикл подготовки и запуска:
-    1. find_free_port() - находит свободный порт для FastAPI
+    1. Читает API_PORT из .env.dev или использует автопоиск
     2. start_infrastructure() - поднимает всю инфраструктуру
     3. uvicorn.run() - запускает сервер с hot reload
 
     Args:
-        port: Конкретный порт для FastAPI. Если None - автопоиск
+        port: Конкретный порт для FastAPI. Если None - берёт из .env.dev или автопоиск
 
     Note:
         При ошибке инфраструктуры прерывает выполнение.
         Сервер запускается с debug логами и автоперезагрузкой
     """
-    # Находим порт для FastAPI ДО запуска инфраструктуры
+    # Загружаем переменные окружения из .env.dev
+    env_vars = load_env_vars(env_file_path=str(ROOT_DIR / DEV_ENV_FILE))
+
+    # Находим порт для FastAPI: аргумент > API_PORT из .env > автопоиск
     if port is None:
-        port = find_free_port()
+        env_port = env_vars.get('API_PORT')
+        if env_port:
+            preferred_port = int(env_port)
+            if is_port_free(preferred_port):
+                port = preferred_port
+                print(f"✅ Используем API_PORT из .env.dev: {port}")
+            else:
+                port = find_free_port(preferred_port)
+                print(f"⚠️ Порт {preferred_port} занят, используем: {port}")
+        else:
+            port = find_free_port()
 
     # Запускаем инфраструктуру
     if not start_infrastructure(port):
@@ -1112,7 +1126,8 @@ def start_infrastructure(port: Optional[int] = None) -> bool:
         print("="*60)
 
         print("\n📡 СЕРВИСЫ:")
-        print(f"📊 FastAPI Swagger:    http://localhost:{port}/docs")
+        if port:
+            print(f"📊 FastAPI Swagger:    http://localhost:{port}/docs")
         print(f"🗄️ PostgreSQL:        localhost:{ports['POSTGRES']}")
         print(f"📦 Redis:             localhost:{ports['REDIS']}")
 
@@ -1428,7 +1443,7 @@ def bootstrap():
                 print(f"   - {port_info}")
             print("🔄 Продолжаем с автопоиском свободных портов...")
 
-        # Запускаем инфраструктуру
+        # Запускаем инфраструктуру (порт FastAPI не нужен, bootstrap не запускает сервер)
         if not start_infrastructure():
             print("❌ Не удалось запустить инфраструктуру!")
             return False

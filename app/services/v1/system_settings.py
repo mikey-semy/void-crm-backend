@@ -46,6 +46,13 @@ class AISettingsService(BaseService):
         """
         ai_settings = settings.ai
 
+        # AI enabled/disabled
+        ai_enabled_str = await self.repository.get_value(
+            SystemSettingsKeys.AI_ENABLED,
+            "true",
+        )
+        ai_enabled = ai_enabled_str.lower() == "true"
+
         provider = await self.repository.get_value(
             SystemSettingsKeys.RAG_EMBEDDING_PROVIDER,
             ai_settings.RAG_DEFAULT_PROVIDER,
@@ -82,6 +89,7 @@ class AISettingsService(BaseService):
             api_key_hint = self._get_api_key_hint(encrypted_key)
 
         return AISettingsSchema(
+            ai_enabled=ai_enabled,
             embedding_provider=provider,
             embedding_model=model,
             embedding_dimension=int(dimension_str) if dimension_str else ai_settings.RAG_DEFAULT_DIMENSION,
@@ -94,6 +102,7 @@ class AISettingsService(BaseService):
 
     async def update_settings(
         self,
+        ai_enabled: bool | None = None,
         api_key: str | None = None,
         embedding_model: str | None = None,
         llm_model: str | None = None,
@@ -103,6 +112,7 @@ class AISettingsService(BaseService):
         Обновляет AI настройки.
 
         Args:
+            ai_enabled: Включить/выключить AI функции
             api_key: API ключ (будет зашифрован)
             embedding_model: Модель эмбеддингов
             llm_model: Основная LLM модель
@@ -111,6 +121,13 @@ class AISettingsService(BaseService):
         Returns:
             Обновлённые настройки
         """
+        if ai_enabled is not None:
+            await self.repository.set_value(
+                SystemSettingsKeys.AI_ENABLED,
+                "true" if ai_enabled else "false",
+                "AI функции включены/выключены",
+            )
+
         if api_key is not None:
             encrypted = self.encryption.encrypt(api_key)
             await self.repository.set_value(

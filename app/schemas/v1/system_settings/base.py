@@ -12,6 +12,12 @@ class AISettingsSchema(CommonBaseSchema):
     Включает API ключ, embedding модель, LLM модели, статус индексации.
     """
 
+    # AI Enabled/Disabled
+    ai_enabled: bool = Field(
+        True,
+        description="AI функции включены",
+    )
+
     # API Configuration
     api_key_hint: str | None = Field(
         None,
@@ -61,6 +67,7 @@ class AISettingsSchema(CommonBaseSchema):
 class AISettingsUpdateSchema(CommonBaseSchema):
     """Схема обновления AI настроек."""
 
+    ai_enabled: bool | None = Field(None, description="AI функции включены")
     api_key: str | None = Field(None, description="API ключ OpenRouter")
     embedding_model: str | None = Field(None, description="Модель эмбеддингов")
     llm_model: str | None = Field(None, description="Основная LLM")

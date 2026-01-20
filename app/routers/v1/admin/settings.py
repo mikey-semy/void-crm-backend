@@ -94,6 +94,7 @@ class AdminAISettingsRouter(ProtectedRouter):
 - Только для администраторов
 
 ### Request Body:
+- **ai_enabled** — Включить/выключить AI функции
 - **api_key** — API ключ OpenRouter (будет зашифрован)
 - **embedding_model** — Модель эмбеддингов
 - **llm_model** — Основная LLM модель
@@ -110,6 +111,7 @@ class AdminAISettingsRouter(ProtectedRouter):
         ) -> AISettingsResponseSchema:
             """Обновляет AI настройки."""
             ai_settings = await service.update_settings(
+                ai_enabled=data.ai_enabled,
                 api_key=data.api_key,
                 embedding_model=data.embedding_model,
                 llm_model=data.llm_model,

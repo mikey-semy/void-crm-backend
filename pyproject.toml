@@ -38,7 +38,13 @@ bootstrap = "scripts.commands:activate"
 check = "scripts.commands:check"
 dev = "scripts.commands:dev"
 format = "scripts.commands:format_code"
+infra-test = "scripts.commands:infra_test"
+lint = "scripts.commands:lint"
 migrate = "scripts.commands:migrate"
+serve = "scripts.commands:serve"
+setup = "scripts.commands:setup"
+start = "scripts.commands:start_all"
+test = "scripts.commands:test"
 worker = "scripts.commands:worker"
 
 [build-system]

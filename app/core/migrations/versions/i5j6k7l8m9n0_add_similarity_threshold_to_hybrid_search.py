@@ -20,7 +20,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Обновляем функцию гибридного поиска с добавлением similarity_threshold
+    # Сначала удаляем старую функцию (с 7 параметрами)
+    op.execute("""
+        DROP FUNCTION IF EXISTS hybrid_search(TEXT, vector(1536), INT, FLOAT, FLOAT, INT, UUID);
+    """)
+
+    # Создаём новую версию функции с similarity_threshold
     op.execute("""
         CREATE OR REPLACE FUNCTION hybrid_search(
             query_text TEXT,
@@ -100,9 +105,9 @@ def upgrade() -> None:
         $$;
     """)
 
-    # Обновляем комментарий к функции
+    # Обновляем комментарий к функции (указываем полную сигнатуру)
     op.execute("""
-        COMMENT ON FUNCTION hybrid_search IS
+        COMMENT ON FUNCTION hybrid_search(TEXT, vector(1536), INT, FLOAT, FLOAT, INT, UUID, FLOAT) IS
         'Гибридный поиск с RRF (Reciprocal Rank Fusion) для комбинирования
         полнотекстового и семантического поиска.
         Параметры:
@@ -119,6 +124,11 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
+    # Удаляем новую функцию (с 8 параметрами)
+    op.execute("""
+        DROP FUNCTION IF EXISTS hybrid_search(TEXT, vector(1536), INT, FLOAT, FLOAT, INT, UUID, FLOAT);
+    """)
+
     # Возвращаем старую версию функции без threshold
     op.execute("""
         CREATE OR REPLACE FUNCTION hybrid_search(
