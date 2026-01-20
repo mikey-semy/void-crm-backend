@@ -16,6 +16,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Копируем файлы зависимостей и необходимые пакеты проекта
 COPY pyproject.toml uv.lock README.md ./
 COPY app ./app
+COPY worker ./worker
 
 # Устанавливаем зависимости в venv
 ENV UV_HTTP_TIMEOUT=60
