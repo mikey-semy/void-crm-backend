@@ -616,6 +616,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         embedding: list[float],
         pagination: "PaginationParamsSchema",
         category_id: UUID | None = None,
+        similarity_threshold: float = 0.3,
     ) -> tuple[list[KnowledgeArticleModel], int]:
         """Семантический поиск по статьям с использованием эмбеддингов.
 
@@ -625,6 +626,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
             embedding: Вектор запроса.
             pagination: Параметры пагинации.
             category_id: Фильтр по категории.
+            similarity_threshold: Минимальный порог схожести (0-1). Default 0.3.
 
         Returns:
             Кортеж (список статей, общее количество).
@@ -635,12 +637,13 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
 
         # Raw SQL для pgvector cosine similarity
-        # Используем 1 - (embedding <=> query) для similarity
-        base_where = "is_published = true AND embedding IS NOT NULL"
+        # cosine distance = 1 - cosine_similarity, поэтому threshold для distance = 1 - similarity_threshold
+        distance_threshold = 1 - similarity_threshold
+        base_where = f"is_published = true AND embedding IS NOT NULL AND embedding <=> '{embedding_str}'::vector < {distance_threshold}"
         if category_id:
             base_where += f" AND category_id = '{category_id}'"
 
-        # Подсчёт общего количества
+        # Подсчёт общего количества (с учётом threshold)
         count_sql = sql_text(f"""
             SELECT COUNT(*)
             FROM knowledge_articles
@@ -729,6 +732,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
         full_text_weight: float = 1.0,
         semantic_weight: float = 1.0,
         rrf_k: int = 60,
+        similarity_threshold: float = 0.3,
     ) -> tuple[list[KnowledgeArticleModel], int, list[dict]]:
         """Гибридный поиск по статьям с использованием RRF.
 
@@ -743,6 +747,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
             full_text_weight: Вес полнотекстового поиска (default 1.0).
             semantic_weight: Вес семантического поиска (default 1.0).
             rrf_k: Параметр RRF для сглаживания (default 60).
+            similarity_threshold: Минимальный порог схожести 0-1 (default 0.3).
 
         Returns:
             Кортеж (список статей, общее количество, метаданные скоринга).
@@ -764,7 +769,8 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
                 :full_text_weight,
                 :semantic_weight,
                 :rrf_k,
-                {category_param}
+                {category_param},
+                :similarity_threshold
             )
         """)
 
@@ -775,6 +781,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
                 "full_text_weight": full_text_weight,
                 "semantic_weight": semantic_weight,
                 "rrf_k": rrf_k,
+                "similarity_threshold": similarity_threshold,
             },
         )
         total = count_result.scalar() or 0
@@ -795,7 +802,8 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
                 :full_text_weight,
                 :semantic_weight,
                 :rrf_k,
-                {category_param}
+                {category_param},
+                :similarity_threshold
             )
             OFFSET :offset
         """)
@@ -808,6 +816,7 @@ class KnowledgeArticleRepository(BaseRepository[KnowledgeArticleModel]):
                 "full_text_weight": full_text_weight,
                 "semantic_weight": semantic_weight,
                 "rrf_k": rrf_k,
+                "similarity_threshold": similarity_threshold,
                 "offset": offset,
             },
         )
