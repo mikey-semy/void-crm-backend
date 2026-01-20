@@ -31,7 +31,8 @@ WORKDIR /usr/src/app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONOPTIMIZE=2 \
-    MALLOC_ARENA_MAX=2
+    MALLOC_ARENA_MAX=2 \
+    PATH="/usr/src/app/.venv/bin:$PATH"
 
 # Устанавливаем только runtime библиотеки + шрифты для PDF
 RUN apk add --no-cache \
