@@ -17,6 +17,7 @@ dependencies = [
   "python-multipart>=0.0.21",
   "httpx>=0.27.0",
   "pgvector>=0.3.6",
+  "faststream[rabbitmq]>=0.6.5",
 ]
 description = "Backend для внутренней CRM веб-студии VOID"
 name = "void-crm-backend"
