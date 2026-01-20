@@ -7,7 +7,6 @@
 - Гибридный поиск (FTS + semantic с RRF объединением)
 """
 
-from enum import Enum
 from uuid import UUID
 
 from fastapi import Query
@@ -23,14 +22,7 @@ from app.schemas.v1.knowledge import (
     KnowledgeSearchResponseSchema,
     KnowledgeTagListItemSchema,
 )
-
-
-class SearchMode(str, Enum):
-    """Режим поиска по базе знаний."""
-
-    FULLTEXT = "fulltext"
-    SEMANTIC = "semantic"
-    HYBRID = "hybrid"
+from app.schemas.v1.system_settings import SearchMode
 
 
 def _article_to_list_schema(article) -> KnowledgeArticleListItemSchema:

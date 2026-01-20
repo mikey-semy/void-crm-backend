@@ -6,7 +6,13 @@ from app.schemas.v1.openrouter import (
     OpenRouterModelSchema,
 )
 
-from .base import AISettingsSchema, IndexationStatsSchema
+from .base import (
+    AISettingsSchema,
+    IndexationStatsSchema,
+    PromptListSchema,
+    PromptSchema,
+    SearchSettingsSchema,
+)
 
 
 class AISettingsResponseSchema(BaseResponseSchema):
@@ -39,3 +45,21 @@ class IndexationStatsResponseSchema(BaseResponseSchema):
     """Ответ со статистикой индексации."""
 
     data: IndexationStatsSchema
+
+
+class PromptResponseSchema(BaseResponseSchema):
+    """Ответ с одним промптом."""
+
+    data: PromptSchema
+
+
+class PromptListResponseSchema(BaseResponseSchema):
+    """Ответ со списком промптов."""
+
+    data: PromptListSchema
+
+
+class SearchSettingsResponseSchema(BaseResponseSchema):
+    """Ответ с настройками поиска."""
+
+    data: SearchSettingsSchema

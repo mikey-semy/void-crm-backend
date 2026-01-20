@@ -1,8 +1,26 @@
 """Базовые схемы системных настроек."""
 
+from enum import Enum
+
 from pydantic import Field
 
 from app.schemas.base import BaseSchema, CommonBaseSchema
+
+
+class PromptType(str, Enum):
+    """Типы AI промптов."""
+
+    KNOWLEDGE_CHAT = "knowledge_chat"
+    DESCRIPTION_GENERATOR = "description_generator"
+    SEARCH_QUERY_EXTRACTOR = "search_query_extractor"
+
+
+class SearchMode(str, Enum):
+    """Режимы поиска."""
+
+    FULLTEXT = "fulltext"
+    SEMANTIC = "semantic"
+    HYBRID = "hybrid"
 
 
 class AISettingsSchema(CommonBaseSchema):
@@ -97,4 +115,75 @@ class IndexationStatsSchema(CommonBaseSchema):
     articles: list[ArticleIndexStatusSchema] = Field(
         default_factory=list,
         description="Детальный статус каждой статьи",
+    )
+
+
+# ==================== ПРОМПТЫ ====================
+
+
+class PromptSchema(CommonBaseSchema):
+    """Схема промпта."""
+
+    type: PromptType = Field(..., description="Тип промпта")
+    name: str = Field(..., description="Человекочитаемое название")
+    description: str = Field(..., description="Описание назначения промпта")
+    content: str = Field(..., description="Текст промпта")
+    is_default: bool = Field(True, description="Используется дефолтный промпт")
+
+
+class PromptListSchema(CommonBaseSchema):
+    """Список всех промптов."""
+
+    prompts: list[PromptSchema] = Field(
+        default_factory=list,
+        description="Список промптов",
+    )
+
+
+class PromptUpdateSchema(CommonBaseSchema):
+    """Схема обновления промпта."""
+
+    content: str = Field(..., min_length=10, description="Новый текст промпта")
+
+
+# ==================== НАСТРОЙКИ ПОИСКА ====================
+
+
+class SearchSettingsSchema(CommonBaseSchema):
+    """Глобальные настройки поиска."""
+
+    default_mode: SearchMode = Field(
+        SearchMode.HYBRID,
+        description="Режим поиска по умолчанию",
+    )
+    similarity_threshold: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description="Минимальный порог схожести для семантического поиска",
+    )
+    fts_weight: float = Field(
+        1.0,
+        ge=0.0,
+        le=2.0,
+        description="Вес полнотекстового поиска в гибридном режиме",
+    )
+    semantic_weight: float = Field(
+        1.0,
+        ge=0.0,
+        le=2.0,
+        description="Вес семантического поиска в гибридном режиме",
+    )
+
+
+class SearchSettingsUpdateSchema(CommonBaseSchema):
+    """Схема обновления настроек поиска."""
+
+    default_mode: SearchMode | None = Field(None, description="Режим поиска")
+    similarity_threshold: float | None = Field(
+        None, ge=0.0, le=1.0, description="Порог схожести"
+    )
+    fts_weight: float | None = Field(None, ge=0.0, le=2.0, description="Вес FTS")
+    semantic_weight: float | None = Field(
+        None, ge=0.0, le=2.0, description="Вес семантики"
     )

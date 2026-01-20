@@ -26,8 +26,14 @@ from app.schemas.v1.system_settings import (
     IndexationStatsResponseSchema,
     IndexationStatsSchema,
     LLMModelsResponseSchema,
+    PromptListResponseSchema,
+    PromptResponseSchema,
+    PromptType,
+    PromptUpdateSchema,
     ReindexRequestSchema,
     ReindexResponseSchema,
+    SearchSettingsResponseSchema,
+    SearchSettingsUpdateSchema,
 )
 
 
@@ -317,4 +323,207 @@ class AdminAISettingsRouter(ProtectedRouter):
                 success=True,
                 message="Статистика индексации получена",
                 data=IndexationStatsSchema(**stats),
+            )
+
+        # ==================== ПРОМПТЫ ====================
+
+        @self.router.get(
+            path="/ai/prompts",
+            response_model=PromptListResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 📝 Список всех промптов
+
+Возвращает список всех AI промптов с их текущими значениями.
+
+### Требования:
+- Только для администраторов
+
+### Returns:
+- Список промптов с типом, названием, описанием и содержимым
+- Флаг is_default показывает, используется ли дефолтный промпт
+""",
+        )
+        async def get_prompts(
+            service: AISettingsServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> PromptListResponseSchema:
+            """Получает список всех промптов."""
+            prompts = await service.get_prompts()
+
+            return PromptListResponseSchema(
+                success=True,
+                message="Промпты получены",
+                data=prompts,
+            )
+
+        @self.router.get(
+            path="/ai/prompts/{prompt_type}",
+            response_model=PromptResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 📝 Получить промпт
+
+Возвращает один промпт по типу.
+
+### Типы промптов:
+- **knowledge_chat** — Чат по базе знаний
+- **description_generator** — Генератор описаний статей
+- **search_query_extractor** — Извлечение поискового запроса
+
+### Требования:
+- Только для администраторов
+""",
+        )
+        async def get_prompt(
+            prompt_type: PromptType,
+            service: AISettingsServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> PromptResponseSchema:
+            """Получает промпт по типу."""
+            prompt = await service.get_prompt(prompt_type)
+
+            return PromptResponseSchema(
+                success=True,
+                message=f"Промпт '{prompt.name}' получен",
+                data=prompt,
+            )
+
+        @self.router.put(
+            path="/ai/prompts/{prompt_type}",
+            response_model=PromptResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## ✏️ Обновить промпт
+
+Обновляет текст промпта.
+
+### Типы промптов:
+- **knowledge_chat** — Чат по базе знаний
+- **description_generator** — Генератор описаний статей
+- **search_query_extractor** — Извлечение поискового запроса
+
+### Request Body:
+- **content** — Новый текст промпта (минимум 10 символов)
+
+### Требования:
+- Только для администраторов
+""",
+        )
+        async def update_prompt(
+            prompt_type: PromptType,
+            data: PromptUpdateSchema,
+            service: AISettingsServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> PromptResponseSchema:
+            """Обновляет промпт."""
+            prompt = await service.update_prompt(prompt_type, data.content)
+
+            return PromptResponseSchema(
+                success=True,
+                message=f"Промпт '{prompt.name}' обновлён",
+                data=prompt,
+            )
+
+        @self.router.delete(
+            path="/ai/prompts/{prompt_type}",
+            response_model=PromptResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 🔄 Сбросить промпт
+
+Сбрасывает промпт к дефолтному значению.
+
+### Типы промптов:
+- **knowledge_chat** — Чат по базе знаний
+- **description_generator** — Генератор описаний статей
+- **search_query_extractor** — Извлечение поискового запроса
+
+### Требования:
+- Только для администраторов
+""",
+        )
+        async def reset_prompt(
+            prompt_type: PromptType,
+            service: AISettingsServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> PromptResponseSchema:
+            """Сбрасывает промпт к дефолтному."""
+            prompt = await service.reset_prompt(prompt_type)
+
+            return PromptResponseSchema(
+                success=True,
+                message=f"Промпт '{prompt.name}' сброшен к дефолтному",
+                data=prompt,
+            )
+
+        # ==================== НАСТРОЙКИ ПОИСКА ====================
+
+        @self.router.get(
+            path="/ai/search",
+            response_model=SearchSettingsResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## 🔍 Настройки поиска
+
+Возвращает глобальные настройки поиска.
+
+### Требования:
+- Только для администраторов
+
+### Returns:
+- Режим поиска по умолчанию (fulltext/semantic/hybrid)
+- Порог схожести для семантического поиска
+- Веса для гибридного поиска
+""",
+        )
+        async def get_search_settings(
+            service: AISettingsServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> SearchSettingsResponseSchema:
+            """Получает настройки поиска."""
+            search_settings = await service.get_search_settings()
+
+            return SearchSettingsResponseSchema(
+                success=True,
+                message="Настройки поиска получены",
+                data=search_settings,
+            )
+
+        @self.router.put(
+            path="/ai/search",
+            response_model=SearchSettingsResponseSchema,
+            status_code=status.HTTP_200_OK,
+            description="""\
+## ✏️ Обновить настройки поиска
+
+Обновляет глобальные настройки поиска.
+
+### Request Body:
+- **default_mode** — Режим по умолчанию (fulltext/semantic/hybrid)
+- **similarity_threshold** — Порог схожести (0.0-1.0)
+- **fts_weight** — Вес полнотекстового поиска (0.0-2.0)
+- **semantic_weight** — Вес семантического поиска (0.0-2.0)
+
+### Требования:
+- Только для администраторов
+""",
+        )
+        async def update_search_settings(
+            data: SearchSettingsUpdateSchema,
+            service: AISettingsServiceDep,
+            current_admin: CurrentAdminDep,
+        ) -> SearchSettingsResponseSchema:
+            """Обновляет настройки поиска."""
+            search_settings = await service.update_search_settings(
+                default_mode=data.default_mode,
+                similarity_threshold=data.similarity_threshold,
+                fts_weight=data.fts_weight,
+                semantic_weight=data.semantic_weight,
+            )
+
+            return SearchSettingsResponseSchema(
+                success=True,
+                message="Настройки поиска обновлены",
+                data=search_settings,
             )

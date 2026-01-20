@@ -39,7 +39,9 @@ from app.repository.v1.knowledge import (
     KnowledgeTagRepository,
 )
 from app.repository.v1.system_settings import SystemSettingsRepository
+from app.schemas.v1.system_settings import PromptType
 from app.services.base import BaseService
+from app.services.v1.system_settings import DEFAULT_PROMPTS
 
 if TYPE_CHECKING:
     from app.schemas.pagination import PaginationParamsSchema
@@ -139,6 +141,29 @@ class KnowledgeService(BaseService):
             SystemSettingsKeys.RAG_EMBEDDING_MODEL,
             self._ai_settings.RAG_DEFAULT_MODEL,
         )
+
+    async def _get_prompt_content(self, prompt_type: PromptType) -> str:
+        """
+        Получает текст промпта (кастомный или дефолтный).
+
+        Args:
+            prompt_type: Тип промпта
+
+        Returns:
+            Текст промпта
+        """
+        key_mapping = {
+            PromptType.KNOWLEDGE_CHAT: SystemSettingsKeys.AI_PROMPT_KNOWLEDGE_CHAT,
+            PromptType.DESCRIPTION_GENERATOR: SystemSettingsKeys.AI_PROMPT_DESCRIPTION_GENERATOR,
+            PromptType.SEARCH_QUERY_EXTRACTOR: SystemSettingsKeys.AI_PROMPT_SEARCH_QUERY_EXTRACTOR,
+        }
+        key = key_mapping[prompt_type]
+        custom_content = await self.system_settings_repository.get_value(key, "")
+
+        if custom_content:
+            return custom_content
+
+        return DEFAULT_PROMPTS[prompt_type]["content"]
 
     # ==================== СТАТЬИ ====================
 
@@ -560,9 +585,10 @@ class KnowledgeService(BaseService):
         # Ограничиваем контент для экономии токенов
         truncated_content = content[:3000] if len(content) > 3000 else content
 
-        prompt = f"""Напиши краткое описание для статьи базы знаний.
-Описание должно быть на русском языке, 1-2 предложения, без кавычек.
-Описание должно кратко передавать суть статьи и привлекать читателя.
+        # Получаем промпт из настроек
+        base_prompt = await self._get_prompt_content(PromptType.DESCRIPTION_GENERATOR)
+
+        prompt = f"""{base_prompt}
 
 Заголовок: {title}
 
@@ -1449,17 +1475,13 @@ class KnowledgeService(BaseService):
             for msg in recent_messages
         )
 
-        prompt = f"""Проанализируй историю диалога и определи, нужен ли поиск по базе знаний.
+        # Получаем промпт из настроек
+        base_prompt = await self._get_prompt_content(PromptType.SEARCH_QUERY_EXTRACTOR)
+
+        prompt = f"""{base_prompt}
 
 ИСТОРИЯ ДИАЛОГА:
 {history}
-
-ЗАДАЧА:
-1. Если последнее сообщение пользователя - приветствие или общая фраза (привет, как дела, спасибо) - ответь: NONE
-2. Если пользователь задаёт уточняющий вопрос (дальше, ещё, продолжи, подробнее) - сформируй запрос на основе предыдущего контекста диалога
-3. Если пользователь задаёт новый вопрос - извлеки ключевые слова для поиска
-
-ВАЖНО: Верни ТОЛЬКО поисковый запрос (3-10 слов) или слово NONE. Без объяснений.
 
 ОТВЕТ:"""
 
@@ -1588,8 +1610,9 @@ class KnowledgeService(BaseService):
                 except Exception as e:
                     self.logger.warning("Семантический поиск недоступен: %s", e)
 
-        # Формируем системный промпт
-        system_prompt = self._build_chat_system_prompt(context_text, sources)
+        # Получаем базовый промпт из настроек и формируем системный промпт
+        base_prompt = await self._get_prompt_content(PromptType.KNOWLEDGE_CHAT)
+        system_prompt = self._build_chat_system_prompt(base_prompt, context_text, sources)
 
         # Формируем сообщения для LLM
         llm_messages = [{"role": "system", "content": system_prompt}]
@@ -1697,20 +1720,22 @@ class KnowledgeService(BaseService):
 
     def _build_chat_system_prompt(
         self,
+        base_prompt: str,
         context_text: str,
         sources: list[dict[str, Any]],
     ) -> str:
-        """Формирует системный промпт для чата."""
-        prompt = """Ты — AI-ассистент базы знаний. Твоя задача — помогать пользователям находить информацию и отвечать на вопросы.
+        """
+        Формирует системный промпт для чата.
 
-Правила:
-1. Отвечай на русском языке
-2. Используй информацию из предоставленного контекста для ответов
-3. Если в контексте есть только частичная информация — дай ответ на основе того что есть
-4. Если в контексте нет релевантной информации — честно скажи об этом
-5. Давай развёрнутые, полные ответы. Не обрывай мысль на середине
-6. Если пользователь приветствует тебя, поприветствуй в ответ и предложи помощь
-7. ВАЖНО: Всегда завершай свои ответы полностью"""
+        Args:
+            base_prompt: Базовый промпт из настроек
+            context_text: Контекст из базы знаний
+            sources: Список источников
+
+        Returns:
+            Полный системный промпт
+        """
+        prompt = base_prompt
 
         if context_text:
             prompt += f"""

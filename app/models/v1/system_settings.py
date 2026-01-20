@@ -65,6 +65,17 @@ class SystemSettingsKeys:
     AI_LLM_MODEL = "ai.llm_model"  # Основная LLM модель
     AI_LLM_FALLBACK_MODEL = "ai.llm_fallback_model"  # Резервная LLM модель
 
+    # AI промпты
+    AI_PROMPT_KNOWLEDGE_CHAT = "ai.prompt.knowledge_chat"  # Чат по базе знаний
+    AI_PROMPT_DESCRIPTION_GENERATOR = "ai.prompt.description_generator"  # Генерация описания
+    AI_PROMPT_SEARCH_QUERY_EXTRACTOR = "ai.prompt.search_query_extractor"  # Извлечение поискового запроса
+
+    # Глобальные настройки поиска
+    SEARCH_DEFAULT_MODE = "search.default_mode"  # fulltext / semantic / hybrid
+    SEARCH_SIMILARITY_THRESHOLD = "search.similarity_threshold"  # Порог схожести (0-1)
+    SEARCH_FTS_WEIGHT = "search.fts_weight"  # Вес FTS в гибридном поиске
+    SEARCH_SEMANTIC_WEIGHT = "search.semantic_weight"  # Вес семантики в гибридном поиске
+
     # Все ключи для удобства
     ALL_RAG_KEYS = [
         RAG_EMBEDDING_PROVIDER,
@@ -78,4 +89,17 @@ class SystemSettingsKeys:
         AI_ENABLED,
         AI_LLM_MODEL,
         AI_LLM_FALLBACK_MODEL,
+    ]
+
+    ALL_PROMPT_KEYS = [
+        AI_PROMPT_KNOWLEDGE_CHAT,
+        AI_PROMPT_DESCRIPTION_GENERATOR,
+        AI_PROMPT_SEARCH_QUERY_EXTRACTOR,
+    ]
+
+    ALL_SEARCH_KEYS = [
+        SEARCH_DEFAULT_MODE,
+        SEARCH_SIMILARITY_THRESHOLD,
+        SEARCH_FTS_WEIGHT,
+        SEARCH_SEMANTIC_WEIGHT,
     ]
