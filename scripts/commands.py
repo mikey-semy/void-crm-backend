@@ -10,6 +10,7 @@ import time
 import asyncio
 import uvicorn
 
+#TODO: скопировать с другого проекта (https://github.com/mikey-semy/prismatest-backend/tree/master/scripts/commands) реализацию данного кода в более корректном исполнении
 
 TEST_ENV_FILE = ".env.test"
 DEV_ENV_FILE=".env.dev"
